@@ -47,7 +47,7 @@
                 box.setAttribute('arc', this.getRandomInt(1, this.data.randScaleMax));
                 box.setAttribute('p', this.getRandomInt(1, this.data.randScaleMax));
                 box.setAttribute('q', this.getRandomInt(1, this.data.randScaleMax));
-                box.setAttribute('radius-tubular', i * 0.009);
+                box.setAttribute('radius-tubular', 0.1);
                 box.setAttribute('p', this.getRandomInt(1, this.data.randScaleMax));
 
 
@@ -60,7 +60,7 @@
                     to: "'" + this.getRandomInt(1, 720) + " " + this.getRandomInt(1, 720) + " " + this.getRandomInt(1, 720) + "'",
                     loop: 'true',
                     easing: 'easeInSine',
-                    dur: 120000
+                    dur: 100000
                 });
                 // box.setAttribute('animation__scale', {
                 //     property: 'position',
@@ -88,7 +88,7 @@
     <a-scene>
         <!-- Aframe asset system. preload assets here -->
         <!-- create your content here. just a box for now -->
-        <a-entity hello-world="amount:100;randScaleMax:3" position="-3 2 -14">
+        <a-entity hello-world="amount:30;randScaleMax:6" position="0 2 -4">
         </a-entity>
     </a-scene>
 </body>
