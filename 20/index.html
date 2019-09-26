@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>designathon</title>
+    <meta name="description" content="designathon">
+    <script src="https://aframe.io/releases/0.8.0/aframe.min.js"></script>
+    
+    <!-- Use components defined in separate files. -->
+    <script src="https://cdn.rawgit.com/donmccurdy/aframe-extras/v4.1.2/dist/aframe-extras.min.js"></script>
+    <script src="https://unpkg.com/super-hands@3.0.0/dist/super-hands.min.js"></script>
+    <script src="https://rawgit.com/rdub80/aframe-gui/master/dist/aframe-gui.min.js"></script>
+    <script src="https://unpkg.com/aframe-animation-component@^5.1.2/dist/aframe-animation-component.min.js"></script>
+    <script src="https://unpkg.com/aframe-event-set-component@^4.0.0/dist/aframe-event-set-component.min.js"></script> 
+
+ 
+
+ 
+
+    <!-- Specify our scene. -->
+  </head>
+  <body>
+
+
+    
+
+
+
+    <a-scene animation-timeline__1="timeline: #myTimeline; loop: true">
+      <a-assets>
+          <a-mixin id="checkpoint"></a-mixin>
+          <a-mixin id="checkpoint-hovered" color="#6CEEB5"></a-mixin>
+        <img id="groundTexture" src="https://cdn.aframe.io/a-painter/images/floor.jpg" crossorigin="anonymous">
+        <img id="skyTexture" src="img/sky.jpg" crossorigin="anonymous">
+        <a-asset-item id="bus" src="models/model.glb"></a-asset-item>
+        <a-asset-item id="car" src="car/scene.gltf"></a-asset-item>
+
+
+        <a-asset-item src="https://cdn.aframe.io/fonts/Roboto-msdf.json"></a-asset-item>
+        <img id="my-image1" src="img/1.png">
+        <img id="my-image2" src="img/2.png">
+        <img id="my-image3" src="img/3.png">
+
+        <a-mixin id="checkpoint"></a-mixin>
+        <a-mixin id="checkpoint-hovered" color="#6CEEB5"></a-mixin>
+        
+      </a-assets>
+<!-- 
+      <a-entity id="rig" movement-controls="controls: checkpoint" checkpoint-controls="mode: animate">
+        <a-entity camera
+                  position="0 1.6 0"
+                  look-controls="pointerLockEnabled: true">
+          <a-entity cursor
+                    position="0 0 -1"
+                    geometry="primitive: ring; radiusInner: 0.02; radiusOuter: 0.03;"
+                    material="color: #CCC; shader: flat;"></a-entity>
+        </a-entity>
+      </a-entity> -->
+
+    
+       
+        <a-entity id="bus1" gltf-model="#bus" rotation="0 -38.67961159621815 0" position="20.619 -3.2662423532094675 -10.284" scale="0.57 0.57 0.57"></a-entity>            
+            <!-- <a-entity gltf-model="#car" rotation="0 -26.164 0" position="49.09108508388678 0 34.30574673544238" scale="0.272 0.272 0.272"></a-entity> -->
+            <a-entity gltf-model="car/scene.gltf" rotation="0 178.17798645874433 0" position="-7.453917284480561 0.07487685345009615 16.30906636734448" scale="0.1913719013749893 0.1913719013749893 0.1913719013749893"></a-entity>
+        <!-- <a-curvedimage src="#my-image1" height="3.0" radius="5.7" theta-length="72" scale="0.4 0.4 0.4" position="5.583 1.3 0.678307523888617" rotation="0 50.476 0" material="" geometry="thetaLength:72"></a-curvedimage>
+        <a-curvedimage src="#my-image2" height="3.0" radius="5.7" theta-length="72" scale="0.4 0.4 0.4" position="5.525684513222778 1.3 -3.0062968471337554" rotation="7.016709298534881e-15 108.12731997651113 -7.016709298534879e-15" material="" geometry="thetaLength:72"></a-curvedimage>
+        <a-curvedimage src="#my-image3" height="3.0" radius="5.7" theta-length="72" scale="0.4 0.4 0.4" position="3.319792802170407 1.3 4.839699357697148" rotation="0 10.131825080140155 0" material="" geometry="thetaLength:72"></a-curvedimage> -->
+
+        <a-curvedimage src="#my-image3" height="3.0" radius="5.7" theta-length="72" scale="0.3 0.3 0.3" position="4.87075357832391 1.3 3.648770726273901" rotation="0 -0.7875708215930699 0" material="" geometry="thetaLength:72"event-set__enter="_event:
+            mouseenter; _target: #bg; color: #2196F3" on: mouseenter">
+            <a-animation attribute="height" begin="mouseenter" dur="300" to="4"></a-animation>
+            <a-animation attribute="height" begin="mouseleave" dur="300" to="3"></a-animation>
+        </a-curvedimage>
+        <a-curvedimage src="#my-image1" height="3.0" radius="5.7" theta-length="72" scale="0.3 0.3 0.3" position="5.6145680245678635 1.3 3.2908987073985973" rotation="0 50.476 0" material="" geometry="thetaLength:72"event-set__enter="_event:
+        mouseenter; _target: #bg; color: #2196F3" on: mouseenter">
+        <a-animation attribute="height" begin="mouseenter" dur="300" to="4"></a-animation>
+        <a-animation attribute="height" begin="mouseleave" dur="300" to="3"></a-animation></a-curvedimage>
+
+        <a-curvedimage src="#my-image2" height="3.0" radius="5.7" theta-length="72" scale="0.3 0.3 0.3" position="5.525684513222778 1.3 2.64944059056019" rotation="7.016709298534881e-15 108.12731997651113 -7.016709298534879e-15" material="" geometry="thetaLength:72"event-set__enter="_event:
+        mouseenter; _target: #bg; color: #2196F3" on: mouseenter">
+        <a-animation attribute="height" begin="mouseenter" dur="300" to="4"></a-animation>
+        <a-animation attribute="height" begin="mouseleave" dur="300" to="3"></a-animation></a-curvedimage>
+
+<!-- 
+      <a-entity laser-controls="hand: left" super-hands hand-controls="left"></a-entity>
+      <a-entity laser-controls="hand: right" super-hands hand-controls="right"></a-entity> -->
+    </a-entity>
+
+          <!-- Player -->
+          <a-entity id="rig" wasd-controls movement-controls="controls: checkpoint" checkpoint-controls="mode: animate">
+              <a-entity camera
+                        position="0 1.6 0"
+                        look-controls="pointerLockEnabled: true">
+                <a-entity cursor
+                cursor="fuse: true; fuseTimeout: 500"
+                          position="0 0 -1"
+                          geometry="primitive: ring; radiusInner: 0.02; radiusOuter: 0.03;"
+                          material="color: #CCC; shader: flat;"></a-entity>
+              </a-entity>
+            </a-entity>
+    
+            <!-- Checkpoints -->
+            <a-entity position="1 0 1">
+                <a-cylinder checkpoint="" radius="1" height="0.1" position="4.665145889384332 0 2.1013465236025572" color="#BB6BD9" material="" geometry="">
+                </a-cylinder>
+                <a-cylinder checkpoint="" radius="1" height="0.1" position="-1.7438608788944068 0 -10.984148768908973" color="#F2994A" material="" geometry=""></a-cylinder>                    
+
+              <a-cylinder checkpoint radius="1" height="0.1" position="-3 0 0" color="#6FCF97"></a-cylinder>
+              <!-- <a-cylinder checkpoint="" radius="1" height="0.1" position="10.934417437695839 0 -4.694369034211598" color="#F2994A" material="" geometry=""></a-cylinder> -->
+              <a-cylinder checkpoint="" radius="1" height="0.1" position="-6.49087231531769 0 6.82927486610949" color="#6FCF97" material="" geometry=""></a-cylinder>            </a-entity>
+      
+  
+            <a-text value="Codecademy Bootcamp" position="-2.561578816640233 1.5 2.631554834338665" rotation="0 93.51779606605606 0" scale="2.6035460646221176 2.6035460646221176 2.6035460646221176" text=""></a-text>
+
+            <a-text value="Four Barrel Coffee" position="-1.6425471302381673 2.433692439074385 -10.144165717504068" rotation="0 -4.553 0" text=""></a-text>      <a-sky src="#skyTexture"></a-sky>
+
+      <!-- Ground. -->
+      <a-circle src="#groundTexture" rotation="-90 0 0" radius="32"></a-circle>
+
+      <!--Tracked controls. -->
+      <!-- <a-entity hand-controls="hand: left"></a-entity>
+      <a-entity hand-controls="hand: right"></a-entity> -->
+    </a-scene>
+  </body>
+</html>

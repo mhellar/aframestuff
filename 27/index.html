@@ -1,0 +1,196 @@
+<html>
+
+<head>
+    <script src="https://aframe.io/releases/0.8.2/aframe.min.js"></script>
+    <script src="https://unpkg.com/aframe-environment-component/dist/aframe-environment-component.min.js"></script>
+    <script src="https://rawgit.com/fernandojsg/aframe-teleport-controls/master/dist/aframe-teleport-controls.min.js">
+    </script>
+    <script src="//cdn.rawgit.com/donmccurdy/aframe-extras/v6.0.0/dist/aframe-extras.min.js"></script>
+    <script src="https://unpkg.com/aframe-animation-component@^5.1.2/dist/aframe-animation-component.min.js"></script>
+    <script src="https://rawgit.com/protyze/aframe-curve-component/master/dist/aframe-curve-component.min.js"></script>
+    <script src="https://rawgit.com/protyze/aframe-alongpath-component/master/dist/aframe-alongpath-component.min.js">
+    </script>
+    <script src="aframe-anim-component/index.js"></script>
+    <script>
+        // register your component here with a name
+        AFRAME.registerComponent('hello-world', {
+            schema: {
+                amount: {
+                    type: 'number',
+                    default: 10
+                },
+                color: {
+                    type: 'color',
+                    default: 'red'
+                },
+                duration: {
+                    type: 'number',
+                    default: 10000
+                },
+                randScaleMax: {
+                    type: 'number',
+                    default: 3
+                },
+            },
+            //custom function
+            getRandomInt: function (min, max) {
+                min = Math.ceil(min);
+                max = Math.floor(max);
+                return Math.floor(Math.random() * (max - min)) +
+                min; //The maximum is exclusive and the minimum is inclusive
+            },
+
+            getRandomColor: function () {
+                var letters = '0123456789ABCDEF'.split('');
+                var color = '#';
+                for (var i = 0; i < 6; i++) {
+                    color += letters[Math.floor(Math.random() * 16)];
+                }
+                return color;
+            },
+
+            init: function () {
+                for (let i = 1; i < this.data.amount; i++) {
+                    var box = document.createElement('a-torus-knot');
+                    box.setAttribute('color', this.getRandomColor());
+                    box.setAttribute('position', '0 2 -5');
+                    box.setAttribute('scale', this.getRandomInt(1, this.data.randScaleMax) + ' ' + this
+                        .getRandomInt(
+                            1, this.data.randScaleMax) + ' ' + this.getRandomInt(1, this.data
+                            .randScaleMax));
+                    box.setAttribute('rotation', i + ' ' + i + ' ' + i);
+                    box.setAttribute('radius', 50);
+                    box.setAttribute('metalness', 1);
+                    box.setAttribute('radius-tubular', 0.01 / i);
+                    box.setAttribute('transparent', 1);
+                    box.setAttribute('opacity', 0.5);
+
+                    box.setAttribute('p', i);
+                    box.setAttribute('q', 3);
+
+                    var anim = document.createElement('a-animation');
+                    anim.setAttribute('attribute', 'rotation');
+                    anim.setAttribute('dur', '320000');
+                    anim.setAttribute('to', i * 30 + ' ' + i * 30 + ' ' + i * 30);
+                    anim.setAttribute('repeat', 'indefinite');
+                    box.appendChild(anim)
+
+                    var anim = document.createElement('a-animation');
+                    anim.setAttribute('attribute', 'scale');
+                    anim.setAttribute('dur', '32000');
+                    anim.setAttribute('to', i * 2 + ' ' + i * 2 + ' ' + i * 2);
+                    anim.setAttribute('repeat', 'indefinite');
+                    box.appendChild(anim)
+
+                    this.el.appendChild(box);
+
+                }
+            }
+        });
+    </script>
+
+
+</head>
+
+<body>
+    <a-scene>
+        <a-assets>
+            <a-mixin id="teleport" teleport-controls="type: parabolic; cameraRig: #cameraRig; defaultPlaneSize: 1000;">
+            </a-mixin>
+
+            <a-asset-item id="stand" src="assets/models/model.glb" position="0 -1 0"></a-asset-item>
+            <!-- <audio id="magic" src="assets/sound/magic.mp3" preload="auto"></audio> -->
+            <a-asset-item id="probe" src="assets/models/probe.obj"></a-asset-item>
+        </a-assets>
+        <a-ocean position="0 1.2 0" color="#a700c1" width="250" depth="250" density="150" speed="2"></a-ocean>
+        <!-- <a-entity anim="amount: 50;randScaleMax: 3;" position=" 45 0 15"></a-entity> -->
+
+        <a-light type="ambient" color="white" intensity="0.5"></a-light>
+
+        <a-entity hello-world="amount:20;randScaleMax:4" position="0 22.35589385257807 61.52208652198784">
+        </a-entity>
+        <a-entity hello-world="amount: 5;randScaleMax: 30;" position="45 10 15"></a-entity>
+        <a-entity hello-world="amount: 10;randScaleMax: 100;" position="27 25 -41"></a-entity>
+        <a-entity hello-world="amount: 10;randScaleMax: 100;" position="-8 27 -43"></a-entity>
+        <a-entity hello-world="amount: 10;randScaleMax: 100;" position="-8 28 12"></a-entity>
+        <a-entity hello-world="amount: 10;randScaleMax: 100;" position="27 24 38"></a-entity>
+        <a-entity hello-world="amount: 10;randScaleMax: 100;" position="53 13 12"></a-entity>
+        <a-entity hello-world="amount: 10;randScaleMax: 38;" position="-27 17 0"></a-entity>
+        <a-entity hello-world="amount: 10;randScaleMax: 38;" position="24 37 59"></a-entity>
+
+        <a-curve id="track2">
+            <a-curve-point position="-16 38 -48"></a-curve-point>
+            <a-curve-point position="38 23 -57"></a-curve-point>
+            <a-curve-point position="87 21 5"></a-curve-point>
+            <a-curve-point position="22 27 91"></a-curve-point>
+            <a-curve-point position="29 16 91"></a-curve-point>
+            <a-curve-point position="60 40 70"></a-curve-point>
+            <a-curve-point position="-56 17.0 79"></a-curve-point>
+            <a-curve-point position="-16 38 -48"></a-curve-point>
+        </a-curve>
+
+        <a-curve id="track1">
+            <a-curve-point position="-16 18 -33"></a-curve-point>
+            <a-curve-point position="7 23 -57"></a-curve-point>
+            <a-curve-point position="53 6 5"></a-curve-point>
+            <a-curve-point position="22 8 17"></a-curve-point>
+            <a-curve-point position="29 5 42"></a-curve-point>
+            <a-curve-point position="50 32.45 70"></a-curve-point>
+            <a-curve-point position="-33 5.0 27"></a-curve-point>
+            <a-curve-point position="-16 18 -33"></a-curve-point>
+        </a-curve>
+
+        <a-entity clone-along-curve="curve: #track1; spacing: 0.2; rotation: 0 0 0;"
+            geometry="primitive:box; height:0.001; width:0.002; depth:0.001"></a-entity>
+
+        <a-entity clone-along-curve="curve: #track2; spacing: 0.2; rotation: 0 0 0;"></a-entity>
+
+        <!-- create default environment -->
+
+        <a-entity id="enviro" position="0 -.001 0" environment="
+preset: tron; 
+groundYScale: 1000; 
+groundXScale: 1000; 
+fog: 0.6; 
+dressingAmount: 0; 
+groundColor2: #008eb7; 
+groundColor: #b70014; 
+groundYScale: 20;
+groundTexture: none;
+ground: hills;
+active: true; seed: 17; 
+skyType: gradient; 
+skyColor: #87faf4; 
+horizonColor: #a1a700;
+flatShading: true; 
+dressing: apparatus;
+dressingColor: #3cf7ed; 
+dressingScale: 0.2; 
+<!-- dressingAmount: 200; -->
+dressingOnPlayArea: 1; 
+gridColor: #239893">
+        </a-entity>
+
+
+        <a-entity animation__rotate="property: rotation; dur: 60000; loop: true; to: 0 360 0">
+
+
+            <a-gltf-model src="#stand" scale="7 7 7" position="-18.51561 0.67446 4.42638" rotation="0 90 0"
+                animation-mixer="">
+
+            </a-gltf-model>
+        </a-entity>
+        <!-- <a-sound src="assets/sound/magic.mp3" autoplay="true" sound=""></a-sound> -->
+        </a-gltf-model>
+
+
+        <a-entity id="cameraRig" position="0 0 0" alongpath="curve: #track2; loop: true; dur: 300000">
+            <a-entity camera wasd-controls look-controls></a-entity>
+            <a-entity id="rightHand" mixin="teleport" laser-controls="hand: right" oculus-go-controls="hand: right">
+            </a-entity>
+        </a-entity>
+
+    </a-scene>
+</body>
+
+</html>

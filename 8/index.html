@@ -1,0 +1,50 @@
+<html>
+<head>
+    <script src="https://aframe.io/releases/0.8.2/aframe.min.js"></script>
+    <!-- <script src="https://unpkg.com/aframe-environment-component/dist/aframe-environment-component.min.js"></script> -->
+    <script src="https://rawgit.com/fernandojsg/aframe-teleport-controls/master/dist/aframe-teleport-controls.min.js"></script>
+    <script src="https://rawgit.com/feiss/aframe-environment-component/master/dist/aframe-environment-component.min.js"></script>
+    <script src="//cdn.rawgit.com/donmccurdy/aframe-extras/v4.1.2/dist/aframe-extras.min.js"></script>
+
+</head>
+
+<body>
+    <a-scene>
+            <!-- <a-entity id="enviro" position="0 -.001 0" environment="
+            environment="preset: tron; 
+            dressingAmount: 7; 
+            groundColor2: #9e7b47; 
+            groundColor: #9e7b47; grid: dots; 
+            lightPosition: 0 0.8 1; 
+            active: true; seed: 46; 
+            skyType: atmosphere; 
+            skyColor: #88c; 
+            horizonColor: #ddd; 
+            dressing: pyramids; 
+            dressingColor: #9e7b47; 
+            dressingVariance: 0 0 0;
+            gridColor: #daa452>
+            </a-entity> -->
+
+        <a-assets>
+            <a-mixin id="teleport" teleport-controls="type: parabolic; cameraRig: #cameraRig; defaultPlaneSize: 1000;"></a-mixin>
+            <a-asset-item id="city-obj" src="assets/city/city.obj"></a-asset-item>
+            <a-asset-item id="city-mtl" src="assets/city/city.mtl"></a-asset-item>
+        </a-assets>
+        <a-sky src="#sky"></a-sky>
+        <a-ocean color="#92E2E2" width="100" depth="100" density="100" speed="2"></a-ocean>
+        <a-obj-model src="#city-obj" mtl="#city-mtl" position="0 47 0" scale="0.5 0.5 0.5"> <a-animation attribute="rotation"
+            dur="60000"
+            fill="forwards"
+            to="0 360 0"
+            repeat="indefinite"></a-animation></a-obj-model>
+        </a-box>
+
+        <a-entity id="cameraRig" position="0 1 0">
+                <a-entity camera wasd-controls look-controls></a-entity>
+                <a-entity id="rightHand" mixin="teleport" laser-controls="hand: right" oculus-go-controls="hand: right"></a-entity>
+        </a-entity>
+        
+    </a-scene>
+</body>
+</html>

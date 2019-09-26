@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Hello, WebVR! • A-Frame</title>
+    <meta name="description" content="Hello, WebVR! • A-Frame">
+    <script src="https://aframe.io/releases/0.8.2/aframe.min.js"></script>
+    <script src="https://unpkg.com/aframe-animation-component@^4.1.2/dist/aframe-animation-component.min.js"></script>
+
+</head>
+
+<body>
+    <a-scene background="color: #ECECEC">
+
+        <a-cylinder color="#F55" radius="0.1" animation="property: color; dir: alternate; dur: 1000;
+                     easing: easeInSine; loop: true; to: #5F5"
+            animation__scale="property: rotation; dir: alternate; dur: 2000;
+                     easing: easeInSine; loop: true; to: 10 10 1.2"
+            animation__yoyo="property: rotation; dir: alternate; dur: 1000;
+                           easing: easeInSine; loop: true; to: 10 2 0">
+        </a-cylinder>
+    </a-scene>
+</body>
+
+</html>

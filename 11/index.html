@@ -1,0 +1,140 @@
+<html>
+
+<head>
+    <script src="https://aframe.io/releases/0.8.2/aframe.min.js"></script>
+    <script>
+        AFRAME.registerComponent('si', {
+            schema: {
+                type: 'string'
+            },
+            getRandomInt: function (min, max) {
+                min = Math.ceil(min);
+                max = Math.floor(max);
+                return Math.floor(Math.random() * (max - min)) + min; //The maximum is exclusive and the minimum is inclusive
+            },
+
+            getRandomColor: function () {
+                var letters = '0123456789ABCDEF'.split('');
+                var color = '#';
+                for (var i = 0; i < 6; i++) {
+                    color += letters[Math.floor(Math.random() * 16)];
+                }
+                return color;
+            },
+
+            init: function () {
+                for (let i = 1; i < 32; i++) {
+                    let self = this;
+                    let x = this.getRandomInt(0, 360);
+                    let y = this.getRandomInt(0, 360);
+                    let z = this.getRandomInt(0, 360);
+
+                    let x1 = this.getRandomInt(1, 4);
+                    let y1 = this.getRandomInt(1, 4);
+                    let z1 = this.getRandomInt(1, 4);
+
+                    var knot = document.createElement('a-torus-knot');
+                    knot.setAttribute('color', this.getRandomColor());
+                    knot.setAttribute('position', x1 + ' ' + y1 + ' ' + z1);
+                    knot.setAttribute('scale', '.02 .02 .02');
+                    knot.setAttribute('rotation', x + ' ' + y + ' ' + z);
+                    knot.setAttribute('radius', this.getRandomInt(1, 100));
+
+                    var anim = document.createElement('a-animation');
+                    anim.setAttribute('attribute', 'rotation');
+                    anim.setAttribute('dur', '60000');
+                    anim.setAttribute('to', '0 360 0');
+                    anim.setAttribute('repeat', 'indefinite');
+                    knot.appendChild(anim)
+
+                    var anim = document.createElement('a-animation');
+                    anim.setAttribute('attribute', 'position');
+                    anim.setAttribute('dur', '60000');
+                    anim.setAttribute('to', '0 2 -7');
+                    anim.setAttribute('repeat', 'indefinite');
+                    knot.appendChild(anim)
+
+                    self.el.appendChild(knot);
+                }
+            }
+        });
+
+        AFRAME.registerComponent('circle', {
+            schema: {
+                type: 'string'
+            },
+
+            getRandomColor: function () {
+                var letters = '0123456789ABCDEF'.split('');
+                var color = '#';
+                for (var i = 0; i < 6; i++) {
+                    color += letters[Math.floor(Math.random() * 16)];
+                }
+                return color;
+            },
+
+            init: function () {
+                let items = 32
+                for (var i = 0; i < items; i++) {
+
+                    let x = 2 * Math.sin(2 * Math.PI * i / items);
+                    let y = 2 * Math.cos(2 * Math.PI * i / items);
+                    let z = 2 * Math.sin(2 * Math.PI * i / items);
+
+                    let self = this;
+
+                    var knot = document.createElement('a-torus-knot');
+                    knot.setAttribute('color', this.getRandomColor());
+                    knot.setAttribute('position', x + ' ' + y + ' ' + z);
+                    knot.setAttribute('scale', '.01 .01 .01');
+                    knot.setAttribute('rotation', x + ' ' + y + ' ' + z);
+                    knot.setAttribute('metalness', Math.random());
+                    knot.setAttribute('roughness', Math.random());
+                    knot.setAttribute('radius', '30');
+
+                    var anim = document.createElement('a-animation');
+                    anim.setAttribute('attribute', 'scale');
+                    anim.setAttribute('dur', '60000');
+                    anim.setAttribute('to', '1 1 1');
+                    anim.setAttribute('repeat', 'indefinite');
+                    knot.appendChild(anim)
+
+                    var anim = document.createElement('a-animation');
+                    anim.setAttribute('attribute', 'rotation');
+                    anim.setAttribute('dur', '60000');
+                    anim.setAttribute('to', z + ' ' + x + ' ' + y);
+                    anim.setAttribute('repeat', 'indefinite');
+                    knot.appendChild(anim)
+
+                    self.el.appendChild(knot);
+
+                }
+
+            }
+        });
+    </script>
+</head>
+
+<body>
+    <a-scene background="color: #111">
+        <a-assets>
+            <a-mixin id="light" geometry="primitive: sphere; radius: 1.5" material="color: #FFF; shader: flat" light="color: #DDDDFF; distance: 120; intensity: 2; type: point"></a-mixin>
+        </a-assets>
+        <!-- <a-entity si></a-entity> -->
+        <a-entity circle>
+
+        </a-entity>
+        <a-entity animation="property: rotation; to: 0 0 360; dur: 4000; easing: linear; loop: true">
+            <a-entity mixin="light" position="30 0 0"></a-entity>
+        </a-entity>
+        <a-entity animation="property: rotation; to: 360 0 0; dur: 4000; easing: linear; loop: true">
+            <a-entity mixin="light" position="0 0 40"></a-entity>
+        </a-entity>
+        <a-entity camera look-controls wasd-controls position="0 -1 0"></a-entity>
+
+    </a-scene>
+</body>
+<script>
+</script>
+
+</html>

@@ -1,0 +1,117 @@
+
+<html>
+
+    <head>
+        <title>VR Demo</title>
+    </head>
+    
+    <body>
+        <script src="https://aframe.io/releases/0.8.2/aframe.min.js"></script>
+        <script src="https://rawgit.com/feiss/aframe-environment-component/master/dist/aframe-environment-component.min.js"></script>
+        <script src="https://rawgit.com/protyze/aframe-curve-component/master/dist/aframe-curve-component.min.js"></script>
+        <script src="https://rawgit.com/protyze/aframe-alongpath-component/master/dist/aframe-alongpath-component.min.js"></script>
+        <script src="//cdn.rawgit.com/donmccurdy/aframe-physics-system/v3.2.0/dist/aframe-physics-system.min.js"></script>
+        <script src="https://unpkg.com/super-hands@2.0.2/dist/super-hands.min.js"></script>
+        <script src="https://unpkg.com/aframe-physics-extras@0.1.2/dist/aframe-physics-extras.min.js"></script>
+        <script src="https://rawgit.com/fernandojsg/aframe-teleport-controls/master/dist/aframe-teleport-controls.min.js"></script>
+        <script src="https://rawgit.com/caseyyee/aframe-ui-widgets/master/dist/aframe-ui-widgets.min.js"></script>
+        <script src="https://unpkg.com/aframe-event-set-component@3.0.3/dist/aframe-event-set-component.min.js"></script>
+        <script src="https://unpkg.com/aframe-pointcloud-component/dist/aframe-pointcloud-component.min.js"></script>
+        <script src="https://unpkg.com/aframe-animation-component@^4.1.2/dist/aframe-animation-component.min.js"></script>
+    
+        <a-scene id="scene" vr-mode-ui="enabled: true" physics="gravity:-9.6">
+            <a-assets>
+                <!-- <a-mixin id="mycursor" position="0 0 -0.5" raycaster geometry="primitive: ring; radiusOuter: 0.008; radiusInner: 0.005; segmentsTheta: 32" material="color: white; shader: flat" static-body="shape: sphere; sphereRadius: 0.001" super-hands="colliderEvent: raycaster-intersection;colliderEventProperty: els;colliderEndEvent:raycaster-intersection-cleared; colliderEndEventProperty: clearedEls;colliderState:"></a-mixin> -->
+                <a-mixin id="mytouch" physics-collider phase-shift collision-filter="collisionForces: false" static-body="shape: sphere; sphereRadius: 0.02" super-hands="colliderEvent: collisions; colliderEventProperty: els; colliderEndEvent: collisions; colliderEndEventProperty: clearedEls;colliderState:"></a-mixin>
+                <a-asset-item id="ahead" src="assets/head.obj"></a-asset-item>
+                <img id="my-image" src="assets/potion.png">
+                <img id="sky" src="assets/sphere.jpg">
+                <a-asset-item id="city" src="assets/newcity/model.gltf"></a-asset-item>
+            </a-assets>
+    
+            <!-- <a-entity id="enviro" position="0 -.001 0" environment="
+            preset: tron;
+            groundYScale: 100;
+            fog: 0.5;
+            dressingAmount: 200;
+            groundColor2: #008eb7;
+            groundColor: #b34093;
+            groundTexture: checkerboard;
+            active: true;
+            seed: 17;
+            skyType: gradient;
+            skyColor: #87faf4;
+            horizonColor: #b50200;
+            flatShading: true;
+            dressing: mushrooms;
+            dressingColor: #ff3679;
+            dressingScale: 0.2;
+            gridColor: #239893;
+            ground: hills;
+            grid: 1x1;
+            shadow: true">
+    
+    
+    
+    </a-entity> -->
+    <!-- ground collider keeps objets from falling -->
+    <a-box static-body width=100 height=0.001 depth=100 visible="false"></a-box>
+    
+    <!-- <a-pointcloud 
+    scale="500 500 500" 
+    position="1.5 2 0.5" 
+    src="url(assets/bunny.ply)" 
+    size="0.05"
+    depthWrite="false">
+    <a-animation direction="alternate" attribute="rotation" to="0 -360 0" dur="20000" repeat="indefinite"></a-animation>
+    </a-pointcloud> -->
+    
+    <a-image src="#my-image">
+            <a-animation direction="alternate" attribute="scale" to="1.2 1.2 1.2" dur="500" repeat="indefinite"></a-animation>
+    </a-image>
+    
+    
+    <a-sky src="#sky"></a-sky>
+    
+            <a-curve id="track1">
+                <a-curve-point position="-181 19 -33"></a-curve-point>
+                <a-curve-point position="150 49 -262"></a-curve-point>
+                <a-curve-point position="180 80 -5"></a-curve-point>
+                <a-curve-point position="11 161 64"></a-curve-point>
+                <a-curve-point position="-186 -33 42"></a-curve-point>
+                <a-curve-point position="-230 -12 -184"></a-curve-point>
+                <a-curve-point position="-33 6.0 -233"></a-curve-point>
+                <a-curve-point position="-181 19 -33"></a-curve-point>
+            </a-curve>
+            <a-draw-curve curveref="#track1" material="shader: line;
+            color: blue;"></a-draw-curve>
+    
+
+    
+            <a-gltf-model src="#city" position="235.1 -375 -163" scale="200 200 200"></a-gltf-model>
+    
+            <a-entity>
+                <a-entity id="sun" obj-model="obj: #ahead;" material="color: #ff0000; metalness: .5;" scale="50 50 50" rotation="0 0 180" position="0 20 -25" sound="src:assets/oak.mp3;autoplay:true; loop:true;" alongpath="curve: #track1; loop: true; dur: 120000">
+                </a-entity>
+                <a-animation direction="alternate" attribute="rotation" to="0 -360 0" dur="20000" repeat="indefinite"></a-animation>
+    
+        </a-entity>
+
+
+            </a-entity>
+    
+            <!-- CAMERA RIG FOR TELEPORT-CONTROLS AND SUPER-HANDS -->
+            <a-entity id="cameraRig" alongpath="curve: #track1; loop: true; dur: 120000">
+                <a-entity id="head" progressive-controls="touchMixin: mytouch; override: true; objects: .obj, .button; maxLevel: point;">
+                    <a-entity teleport-controls="cameraRig: #cameraRig; teleportOrigin: #head;" shadow="cast:true" class="left-controller"></a-entity>
+                    <a-entity teleport-controls="cameraRig: #cameraRig; teleportOrigin: #head;" shadow="cast:true" class="right-controller"></a-entity>
+                </a-entity>
+            </a-entity>
+    
+    
+        </a-scene>
+    
+
+    </body>
+    
+    </html>
