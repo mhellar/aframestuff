@@ -43,16 +43,16 @@
         init: function () {
             for (let i = 1; i < this.data.amount; i++) {
                 var box = document.createElement('a-torus-knot');
-                box.setAttribute('shader-frog', "src:url(https://raw.githubusercontent.com/mhellar/aframestuff/master/basic4/shaders/Polkadots.json)")
+                box.setAttribute('shader-frog', "src:url(https://raw.githubusercontent.com/mhellar/aframestuff/master/basic4/shaders/Fluid_Circles.json)")
                 box.setAttribute('position', '0 0 0');
                 box.setAttribute('arc', this.getRandomInt(1, this.data.randScaleMax));
                 box.setAttribute('p', this.getRandomInt(1, this.data.randScaleMax));
                 box.setAttribute('q', this.getRandomInt(1, this.data.randScaleMax));
-                box.setAttribute('radius-tubular', 1);
+                box.setAttribute('radius-tubular', 0.8);
                 box.setAttribute('p', this.getRandomInt(1, this.data.randScaleMax));
 
 
-                box.setAttribute('scale', '2 2 2');
+                box.setAttribute('scale', '0.5 0.5 0.5');
                 box.setAttribute('rotation', i + ' ' + i + ' ' + i);
                 box.setAttribute('radius', i);
                 box.setAttribute('metalness', 1);
@@ -70,14 +70,14 @@
                 //     easing: 'easeInOutElastic',
                 //     dur: 10000
                 // });
-                box.setAttribute('animation__color', {
-                    property: 'material.color',
-                    dir: 'alternate',
-                    easing: 'easeInOutElastic',
-                    to: '#FFF',
-                    loop: 'true',
-                    dur: 100000
-                });
+                // box.setAttribute('animation__color', {
+                //     property: 'material.color',
+                //     dir: 'alternate',
+                //     easing: 'easeInOutElastic',
+                //     to: '#FFF',
+                //     loop: 'true',
+                //     dur: 100000
+                // });
                 this.el.appendChild(box);
             }
         }
@@ -89,7 +89,7 @@
     <a-scene>
         <!-- Aframe asset system. preload assets here -->
         <!-- create your content here. just a box for now -->
-        <a-entity hello-world="amount:10;randScaleMax:6" position="0 2 -4">
+        <a-entity hello-world="amount:10;randScaleMax:2" position="0 2 -4">
         </a-entity>
     </a-scene>
 </body>
