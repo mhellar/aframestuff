@@ -41,18 +41,22 @@
             return color;
         },
         init: function () {
+            let items = 32
             for (let i = 1; i < this.data.amount; i++) {
+                let x = 2 * Math.sin(2 * Math.PI * i / items);
+                let y = 2 * Math.cos(2 * Math.PI * i / items);
+                let z = 2 * Math.sin(2 * Math.PI * i / items);
                 var box = document.createElement('a-torus-knot');
                 box.setAttribute('shader-frog', "src:url(https://raw.githubusercontent.com/mhellar/aframestuff/master/basic4/shaders/Fluid_Circles.json)")
-                box.setAttribute('position', '0 0 0');
+                box.setAttribute('position', x + ' ' + y + ' ' + z);
                 box.setAttribute('arc', this.getRandomInt(1, this.data.randScaleMax));
                 box.setAttribute('p', this.getRandomInt(1, this.data.randScaleMax));
                 box.setAttribute('q', this.getRandomInt(1, this.data.randScaleMax));
-                box.setAttribute('radius-tubular', 0.8);
+                box.setAttribute('radius-tubular', 2);
                 box.setAttribute('p', this.getRandomInt(1, this.data.randScaleMax));
 
 
-                box.setAttribute('scale', '0.5 0.5 0.5');
+                box.setAttribute('scale', '0.1 0.1 0.1');
                 box.setAttribute('rotation', i + ' ' + i + ' ' + i);
                 box.setAttribute('radius', i);
                 box.setAttribute('metalness', 1);
@@ -89,7 +93,7 @@
     <a-scene>
         <!-- Aframe asset system. preload assets here -->
         <!-- create your content here. just a box for now -->
-        <a-entity hello-world="amount:10;randScaleMax:2" position="0 2 -4">
+        <a-entity hello-world="amount:10;randScaleMax:10" position="0 2 -4">
         </a-entity>
     </a-scene>
 </body>
