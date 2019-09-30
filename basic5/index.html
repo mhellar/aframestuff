@@ -69,7 +69,7 @@
             },
 
             init: function () {
-                let items = 16;
+                let items = 32;
                 for (var i = 0; i < items; i++) {
 
                     let x = 2 * Math.sin(2 * Math.PI * i / items);
@@ -96,7 +96,7 @@
 
                     var anim = document.createElement('a-animation');
                     anim.setAttribute('attribute', 'rotation');
-                    anim.setAttribute('dur', '600000');
+                    anim.setAttribute('dur', '60000');
                     anim.setAttribute('to', z + ' ' + x + ' ' + y);
                     anim.setAttribute('repeat', 'indefinite');
                     knot.appendChild(anim)
@@ -139,9 +139,7 @@ fog: 0.4;
 
         <a-entity clone-along-curve="curve: #track1; spacing: 0.2; scale: 1 1 1; rotation: 0 0 0;"></a-entity> -->
 
-        <a-entity circle position="0 4 80"></a-entity>
-        <a-entity circle position="0 4 0"></a-entity>
-        <a-entity circle position="0 4 -80"></a-entity>
+        <a-entity circle></a-entity>
 
         <a-entity>
             <!-- <a-entity id="sun" obj-model="obj: #ahead;" material="color: #ff0000; metalness: .5;" scale="5 5 5" rotation="0 0 180" position="0 20 -25" sound="src:./plume.mp3;autoplay:true; loop:true;">
