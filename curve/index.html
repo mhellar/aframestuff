@@ -17,6 +17,7 @@
     <a-assets>
       <audio id="song" src="sound.mp3" autoplay loop></audio>
     </a-assets>
+    <a-entity circle="amount:1;randScaleMax:1"></a-entity>
     <a-curve id="track1">
       <a-curve-point position="0 2 -100"></a-curve-point>
       <a-curve-point position="0 2 0"></a-curve-point>
@@ -26,7 +27,7 @@
     </a-entity> -->
 
     <a-dodecahedron alongpath="curve: #track1; loop: true; dur: 5000" radius="5" audioanalyser="src: #song"
-      audioanalyser-volume-scale="multiplier: .01" position="0 2 -5" side="double"
+      audioanalyser-volume-scale="multiplier: .08" position="0 2 -5" side="double"
       shader-frog="src:url(https://raw.githubusercontent.com/mhellar/aframestuff/gh-pages/basic4/shaders/sun.json)"
       animation__yoyo="property: rotation; dir: alternate; dur: 5000;
                                  easing: easeInSine; loop: true; to: 0 360 0">
