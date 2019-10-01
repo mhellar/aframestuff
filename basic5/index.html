@@ -81,7 +81,7 @@
                     var knot = document.createElement('a-torus-knot');
                     knot.setAttribute('color', this.getRandomColor());
                     knot.setAttribute('position', x + ' ' + y + ' ' + z);
-                    knot.setAttribute('scale', '.01 .01 .01');
+                    knot.setAttribute('scale', '.1 .1 .1');
                     knot.setAttribute('rotation', x + ' ' + y + ' ' + z);
                     knot.setAttribute('metalness', Math.random());
                     knot.setAttribute('roughness', Math.random());
@@ -90,7 +90,7 @@
                     var anim = document.createElement('a-animation');
                     anim.setAttribute('attribute', 'scale');
                     anim.setAttribute('dur', '60000');
-                    anim.setAttribute('to', z + ' ' + x + ' ' + y);
+                    anim.setAttribute('to', z * 2 + ' ' + x * 2 + ' ' + y * 2);
                     anim.setAttribute('repeat', 'indefinite');
                     knot.appendChild(anim)
 
