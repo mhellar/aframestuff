@@ -1,0 +1,29 @@
+<html>
+
+<head>
+  <script src="https://aframe.io/releases/0.9.0/aframe.min.js"></script>
+    <script src="js/multi.js"></script>
+</head>
+
+<body>
+    <a-scene>
+        <!-- Attach components to an entity tag by adding the name -->
+        <a-entity hello-world="message: 'hi there'; amount: 10; color: orange" position="-1 2 0"></a-entity>
+
+        <a-entity hello-world="message: 'what's up; amount: 50; color: grey" position="0 2 0"></a-entity>
+        </a-entity>
+
+        <a-entity hello-world="message: 'great news'; amount: 1000; color: teal" position="1 2 0"></a-entity>
+        </a-entity>
+        <!-- uncomment to pass an argument -->
+        <!-- <a-entity hello-world=" message: cool news! " position="0 2 -4 "> -->
+        <!-- 
+            <a-entity camera look-controls wasd-controls></a-entity> -->
+        <a-plane rotation="-90 0 0" color="red" width="50" height="50"></a-plane>
+
+    </a-scene>
+</body>
+<script>
+</script>
+
+</html>
