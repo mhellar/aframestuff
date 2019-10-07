@@ -1,0 +1,50 @@
+<html>
+
+<head>
+  <title>A-Frame DepthKit</title>
+  <style>
+    html {
+      background: #000000;
+      color: #FAFAFA;
+      font-family: monospace;
+      font-size: 20px;
+      padding: 10px 20px;
+    }
+  </style>
+
+  <!-- A-Frame CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/aframe/0.7.1/aframe.min.js"></script>
+
+  <!-- Relative bundle name -->
+  <script src="dist/aframe.depthkit.js"></script>
+
+</head>
+
+<body>
+
+  <div id="info">
+    <br />
+    Press W, A, S, D and mouse to navigate.
+  </div>
+
+
+  <!-- Example A-Frame scene -->
+  <a-scene>
+
+    <!-- <a-camera postion="-2.54 0 -16"></a-camera> -->
+
+    <a-entity position="-0.059 0.651 -3.702" camera="active:false;userHeight:1.6" wasd-controls=""
+      rotation="-75.74502051629487 14.094761760218262 0" look-controls="" aframe-injected=""
+      data-aframe-inspector-original-camera="" data-aframe-inspector="default-camera"></a-entity>
+    <!-- Example A-Frame DepthKit component initalization -->
+    <a-entity rotation="0 0 -180" depthkit="type: wire;
+                          metaPath: mh/TAKE_10_05_22_48_18_Export_10_05_22_49_11.txt;
+                          videoPath: mh/TAKE_10_05_22_48_18_Export_10_05_22_49_11.mp4;
+                          autoplay: true;">
+    </a-entity>
+
+  </a-scene>
+
+</body>
+
+</html>
