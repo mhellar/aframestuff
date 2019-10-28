@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Hello, WebVR! • A-Frame</title>
+    <meta name="description" content="Hello, WebVR! • A-Frame">
+    <script src="https://aframe.io/releases/0.9.2/aframe.min.js"></script>
+    <script src="js/aframe-shader-frog.js"></script>
+    <script src="https://unpkg.com/aframe-curve-component/dist/aframe-curve-component.min.js"></script>
+    <script src="https://rawgit.com/protyze/aframe-alongpath-component/master/dist/aframe-alongpath-component.min.js"></script>
+    <script
+    src="https://unpkg.com/aframe-audioanalyser-component@5.4.0/dist/aframe-audioanalyser-component.min.js"></script>
+    <script src="js/audioanalyser-volume-scale.js"></script>
+    <script src="js/audioanalyser-beat-scale.js"></script>
+    <script src="js/aud.js"></script>
+    <script>
+
+AFRAME.registerComponent('circle1', {
+            schema: {
+                type: 'string'
+            },
+
+            getRandomColor: function () {
+                var letters = '0123456789ABCDEF'.split('');
+                var color = '#';
+                for (var i = 0; i < 6; i++) {
+                    color += letters[Math.floor(Math.random() * 16)];
+                }
+                return color;
+            },
+
+            init: function () {
+                let items = 32;
+                for (var i = 0; i < items; i++) {
+
+                    let x = 2 * Math.sin(2 * Math.PI * i / items);
+                    let y = 2 * Math.cos(2 * Math.PI * i / items);
+                    let z = 2 * Math.sin(2 * Math.PI * i / items);
+
+                    let self = this;
+
+                    var knot = document.createElement('a-torus-knot');
+                    knot.setAttribute('color', this.getRandomColor());
+                    knot.setAttribute('position', x + ' ' + y + ' ' + z);
+                    knot.setAttribute('scale', '.1 .1 .1');
+                    knot.setAttribute('rotation', x + ' ' + y + ' ' + z);
+                    knot.setAttribute('metalness', Math.random());
+                    knot.setAttribute('roughness', Math.random());
+                    knot.setAttribute('radius', '30');
+
+                    var anim = document.createElement('a-animation');
+                    anim.setAttribute('attribute', 'scale');
+                    anim.setAttribute('dur', '60000');
+                    anim.setAttribute('to', z * 2 + ' ' + x * 2 + ' ' + y * 2);
+                    anim.setAttribute('repeat', 'indefinite');
+                    knot.appendChild(anim)
+
+                    var anim = document.createElement('a-animation');
+                    anim.setAttribute('attribute', 'rotation');
+                    anim.setAttribute('dur', '60000');
+                    anim.setAttribute('to', z + ' ' + x + ' ' + y);
+                    anim.setAttribute('repeat', 'indefinite');
+                    knot.appendChild(anim)
+
+                    self.el.appendChild(knot);
+
+                }
+
+            }
+  });
+</script>
+   
+  </head>
+  <body>
+    <a-scene background="color:#FAFAFA">
+        <a-sky color="black"></a-sky>
+        <a-assets>
+                <a-asset-item id="thing-obj" src="models/thing.obj"></a-asset-item>
+                <a-asset-item id="thing-mtl" src="models/thing.mtl"></a-asset-item>
+
+                <a-asset-item id="thing2-obj" src="models/thing2.obj"></a-asset-item>
+                <a-asset-item id="thing2-mtl" src="models/thing2.mtl"></a-asset-item>
+
+                <a-asset-item id="thing3-obj" src="models/thing3.obj"></a-asset-item>
+                <a-asset-item id="thing3-mtl" src="models/thing3.mtl"></a-asset-item>
+
+                <audio id="song" src="sound.mp3" autoplay loop></audio>
+        </a-assets>
+        <a-curve id="track1">
+                <a-curve-point position="0 1 2" curve-point=""></a-curve-point>
+                <a-curve-point position="0 1 -3000"></a-curve-point>
+            </a-curve>
+            <a-draw-curve curveref="#track1" material="shader: line; color: blue;"></a-draw-curve>
+
+            <a-entity clone-along-curve="curve: #track1; spacing: 0.2; scale: 1 1 1; rotation: 0 0 0;" geometry="primitive:box; height:0.1; width:0.2; depth:0.1"></a-entity>
+        <a-obj-model position="-12.60543 -4.10966 -4.37415" scale="2 2 2" src="#thing-obj" mtl="#thing-mtl" material="" obj-model=""></a-obj-model>
+
+        <a-obj-model position="-12.60543 -14.98662 -41.39989" scale="2 2 2" src="#thing2-obj" mtl="#thing2-mtl" material="" obj-model=""></a-obj-model>
+
+        <!-- <a-obj-model position="-68.87303 -128.43196 -35.89804" scale="29.51925 32.9673 32.96691" src="#thing3-obj" mtl="#thing3-mtl" material="" obj-model=""></a-obj-model> -->
+
+        <a-obj-model position="-73.86266 -159.07392 -35.89804" scale="36.20884 40.43828 40.43781" src="#thing3-obj" mtl="#thing3-mtl"></a-obj-model>
+
+        <a-entity circle1 position="0 0 -160" scale="10 10 10"></a-entity>
+
+        <!-- <a-obj-model position="-12.60543 -14.98662 -41.39989" scale="2 2 2" src="#thing3-obj" mtl="#thing3-mtl" material="" obj-model=""></a-obj-model> -->
+      <a-plane position="0 0 -4" rotation="-90 0 0" width="4" height="4" color="#7BC8A4" shadow></a-plane>
+      <a-entity alongpath="curve: #track1; loop: true; dur: 700000">
+            <a-camera></a-camera>
+        </a-entity>
+    </a-scene>
+  </body>
+</html>
