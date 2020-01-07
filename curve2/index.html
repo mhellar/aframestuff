@@ -1,0 +1,57 @@
+<head>
+  <title>Audio Reactive</title>
+  <script src="https://rawgit.com/aframevr/aframe/master/dist/aframe-master.min.js"></script>
+  <script src="https://rawgit.com/protyze/aframe-curve-component/master/dist/aframe-curve-component.min.js"></script>
+  <script
+    src="https://rawgit.com/protyze/aframe-alongpath-component/master/dist/aframe-alongpath-component.min.js"></script>
+  <script
+    src="https://unpkg.com/aframe-audioanalyser-component@5.4.0/dist/aframe-audioanalyser-component.min.js"></script>
+  <script src="js/audioanalyser-volume-scale.js"></script>
+  <script src="js/audioanalyser-beat-scale.js"></script>
+  <script src="js/aud.js"></script>
+  <script src="js/aframe-shader-frog.js"></script>
+</head>
+
+<body>
+  <a-scene>
+    <a-assets>
+      <audio id="song" src="sound.mp3" autoplay loop></audio>
+    </a-assets>
+    <a-entity circle="amount:1;randScaleMax:1"></a-entity>
+    <a-curve id="track1">
+      <a-curve-point position="0 2 -50"></a-curve-point>
+      <a-curve-point position="0 2 0"></a-curve-point>
+    </a-curve>
+    <!-- <a-entity id="cameraRig" alongpath="curve: #track1; loop: true; dur: 80000">
+    </a-entity> -->
+
+    <a-curve id="track2">
+        <a-curve-point position="-16 2 -33"></a-curve-point>
+        <a-curve-point position="7 2 -57"></a-curve-point>
+        <a-curve-point position="53 2 5"></a-curve-point>
+        <a-curve-point position="22 2 17"></a-curve-point>
+        <a-curve-point position="29 2 42"></a-curve-point>
+        <a-curve-point position="27 2 60"></a-curve-point>
+        <a-curve-point position="-33 2 27"></a-curve-point>
+        <a-curve-point position="-16 2 -33"></a-curve-point>
+    </a-curve>
+    <a-draw-curve curveref="#track2" material="shader: line; color: blue;"></a-draw-curve>
+    <a-entity clone-along-curve="curve: #track2; spacing: 0.2; scale: 1 1 1; rotation: 0 0 0;" geometry="primitive:box; height:0.1; width:0.2; depth:0.1"></a-entity>
+
+    <a-sphere alongpath="curve: #track1; loop: true; dur: 10000" radius="5" audioanalyser="src: #song"
+      audioanalyser-volume-scale="multiplier: .01" position="0 2 -20" side="double"
+      shader-frog="src:url(https://raw.githubusercontent.com/mhellar/aframestuff/gh-pages/basic4/shaders/sun.json)"
+      animation__yoyo="property: rotation; dir: alternate; dur: 5000;
+                                 easing: easeInSine; loop: true; to: 0 360 0"
+      animation__seg="property: segments-height; dir: alternate; dur: 500;
+                                 easing: easeInSine; loop: true; from:6; to: 32"
+      animation__seg2="property: segments-width; dir: alternate; dur: 1000;
+                                 easing: easeInSine; loop: true; from:6; to: 32">
+
+  </a-sphere>
+
+
+  
+
+  </a-scene>
+</body>

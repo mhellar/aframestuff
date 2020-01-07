@@ -33,9 +33,9 @@ AFRAME.registerComponent('circle', {
   },
   init: function () {
       var box = document.createElement('a-sphere');
-      box.setAttribute('shader-frog', "src:url(https://raw.githubusercontent.com/mhellar/aframestuff/gh-pages/basic4/shaders/Acid_Glow_Shader.json)")
+      box.setAttribute('shader-frog', "src:url(https://raw.githubusercontent.com/mhellar/aframestuff/gh-pages/basic4/shaders/New_Composed_Shader.json)")
       box.setAttribute('position', 0 + ' ' + 6 + ' ' + 10);
-      box.setAttribute('scale', '180 180 180');
+      box.setAttribute('scale', '1800 1800 1800');
       this.el.appendChild(box);
   }
 });
