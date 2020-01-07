@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>scene1</title>
+    <meta name="description" content="scene1">
+    <script src="https://aframe.io/releases/1.0.0/aframe.min.js"></script>
+    <script>
+      AFRAME.registerComponent('trench', {
+    init: function () {
+      
+    },
+    
+    tick: function (t) {
+      
+      if (this.el.object3D.position.z >= 1) {
+        this.el.object3D.position.z = 0;
+      }
+      this.el.object3D.position.z += 0.01;
+    }
+  });
+    AFRAME.registerComponent('trench2', {
+    init: function () {
+      
+    },
+    
+    tick: function (t) {
+      
+      if (this.el.object3D.position.z >= 1) {
+        this.el.object3D.position.z = 0;
+      }
+      this.el.object3D.position.z -= 0.01;
+    }
+  });
+  
+    </script>
+  </head>
+  <body>
+    <a-scene background="" renderer="antialias: true; gammaOutput: true;" 
+    light="defaultLightsEnabled: false;" 
+    fog="color: #3366ee; far: 21.16; density: 2.68" inspector="" keyboard-shortcuts="" screenshot="" vr-mode-ui="">
+      <a-assets>
+        <img id="groundTexture" src="https://cdn.aframe.io/a-painter/images/floor.jpg" crossorigin="anonymous">
+        <img id="skyTexture" src="https://cdn.aframe.io/a-painter/images/sky.jpg" crossorigin="anonymous">
+      </a-assets>
+
+      <!-- Primitives. -->
+      <a-box position="-1 0.6 -3" rotation="0 45 0" color="#4CC3D9" material="" geometry=""></a-box>
+      <a-sphere position="0 1.35 -5" radius="1.25" color="#EF2D5E" material="" geometry=""></a-sphere>
+      <a-cylinder position="1 0.85 -3" radius="0.5" height="1.5" color="#FFC65D" material="" geometry=""></a-cylinder>
+      <a-plane position="0 0.1 -4" rotation="-90 0 0" width="4" height="4" color="#7BC8A4" material="" geometry=""></a-plane>
+
+      <a-entity geometry="height: 10; width: 10; depth: 50; segmentsWidth: 10; segmentsHeight: 10; segmentsDepth: 50" material="shader: flat; color: indigo; wireframe: true; side: back" trench=""></a-entity>
+
+
+
+      <!-- Background sky. -->
+      <a-sky height="2048" radius="30" src="#skyTexture" theta-length="90" width="2048" material="" geometry=""></a-sky>
+
+      <!-- Ground. -->
+      <a-circle src="#groundTexture" rotation="-90 0 0" radius="32" material="" geometry=""></a-circle>
+
+      <!--Tracked controls. -->
+      <a-entity hand-controls="hand: left"></a-entity>
+      <a-entity hand-controls="hand: right"></a-entity>
+    <div class="a-loader-title" style="display: none;">scene1</div></a-scene>
+      <a-assets>
+        <img id="groundTexture" src="https://cdn.aframe.io/a-painter/images/floor.jpg" crossorigin="anonymous">
+        <img id="skyTexture" src="https://cdn.aframe.io/a-painter/images/sky.jpg" crossorigin="anonymous">
+      </a-assets>
+
+      <!-- Primitives. -->
+      <a-box position="-1 0.6 -3" rotation="0 45 0" color="#4CC3D9"></a-box>
+      <a-sphere position="0 1.35 -5" radius="1.25" color="#EF2D5E"></a-sphere>
+      <a-cylinder position="1 0.85 -3" radius="0.5" height="1.5" color="#FFC65D"></a-cylinder>
+      <a-plane position="0 .1 -4" rotation="-90 0 0" width="4" height="4" color="#7BC8A4"></a-plane>
+
+      <!-- <a-entity geometry="primitive: box; height: 100; width: 100; depth: 100; segmentsWidth: 10; segmentsHeight: 10; segmentsDepth: 50;"
+      material="shader: flat; color: indigo; emissive: indigo; wireframe: true; side: back;"
+      trench></a-entity> -->
+
+      <a-entity geometry="primitive: box; height: 50; width: 50; depth: 50; segmentsWidth: 10; segmentsHeight: 10; segmentsDepth: 50;"
+      material="shader: flat; color: indigo; emissive: indigo; wireframe: true; side: back;"
+      trench2></a-entity>
+
+</a-entity>
+
+      <!-- Background sky. -->
+      <a-sky height="2048" radius="30" src="#skyTexture" theta-length="90" width="2048"></a-sky>
+
+      <!-- Ground. -->
+      <a-circle src="#groundTexture" rotation="-90 0 0" radius="32"></a-circle>
+
+      <!--Tracked controls. -->
+      <a-entity hand-controls="hand: left"></a-entity>
+      <a-entity hand-controls="hand: right"></a-entity>
+    </a-scene>
+  </body>
+</html>

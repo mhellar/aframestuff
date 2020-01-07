@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>scene4</title>
+    <meta name="description" content="scene4">
+    <script src="https://aframe.io/releases/1.0.3/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/donmccurdy/aframe-extras@v6.0.1/dist/aframe-extras.min.js"></script>
+
+  </head>
+  <body>
+    <a-scene>
+      <a-assets>
+        <img id="groundTexture" src="https://cdn.aframe.io/a-painter/images/floor.jpg" crossorigin="anonymous">
+        <img id="skyTexture" src="https://cdn.aframe.io/a-painter/images/sky.jpg" crossorigin="anonymous">
+        <a-asset-item id="tinyroom" src="models/room/room.glb"></a-asset-item>
+      </a-assets>
+
+      <!-- Primitives. -->
+      <!-- <a-box position="-1 0.6 -3" rotation="0 45 0" color="#4CC3D9"></a-box> -->
+      <a-entity light="type: ambient; color: #BBB"></a-entity>
+      <a-entity light="type: point; intensity: 1.3; distance: 100; decay: 2"
+      position="0 1 1"></a-entity>
+      <a-sphere position="0 1.35 -5" radius="1.25" color="#EF2D5E" wireframe="true" 
+      
+      animation__color="property: material.color; dir: alternate; dur: 3000;
+                                easing: easeInSine; loop: true; to: #FFF"
+      animation__segmentw="property: segments-width; dir: alternate; dur: 3000;
+                                easing: easeInSine; loop: true; from: 4; to: 36"
+      animation__segmenth="property: segments-height; dir: alternate; dur: 3000;
+                                easing: easeInSine; loop: true; from: 4; to: 18"
+                                >
+                                <a-sound src="snd/plume.mp3" autoplay="true"></a-sound>
+                              </a-sphere>
+      <!-- <a-cylinder position="1 0.85 -3" radius="0.5" height="1.5" color="#FFC65D"></a-cylinder>
+      <a-plane position="0 .1 -4" rotation="-90 0 0" width="4" height="4" color="#7BC8A4"></a-plane> -->
+      <a-gltf-model src="#tinyroom" scale="22 22 22" ></a-gltf-model>
+
+
+      <!-- Background sky. -->
+      <!-- <a-sky height="2048" radius="30" src="#skyTexture" theta-length="90" width="2048"></a-sky> -->
+
+      <!-- Ground. -->
+      <a-circle src="#groundTexture" rotation="-90 0 0" radius="32"></a-circle>
+  
+
+  <a-entity id="rig"
+          movement-controls="speed: 0.05"
+          position="0 0 0">
+  <a-entity camera
+            position="0 1.6 0"
+            look-controls="pointerLockEnabled: true"></a-entity>
+            <a-entity 
+            id="lefthand"
+            hand-controls="left"
+            ></a-entity>
+        <a-entity
+        hand-controls="right"
+        ></a-entity>
+</a-entity>
+      
+    </a-scene>
+  </body>
+</html>

@@ -1,0 +1,50 @@
+<html>
+<head>
+    <script src="https://aframe.io/releases/1.0.3/aframe.min.js"></script>
+     <script src="https://unpkg.com/aframe-environment-component/dist/aframe-environment-component.min.js"></script>
+    <script src="https://rawgit.com/fernandojsg/aframe-teleport-controls/master/dist/aframe-teleport-controls.min.js"></script>
+    <script src="//cdn.rawgit.com/donmccurdy/aframe-extras/v4.1.2/dist/aframe-extras.min.js"></script>
+</head>
+
+<body>
+    <a-scene>
+        <a-assets>
+            <a-mixin id="teleport" teleport-controls="type: parabolic; cameraRig: #cameraRig; defaultPlaneSize: 1000;"></a-mixin>
+
+            <a-asset-item id="stand" src="assets/models/hh.glb" position="0 -1 0"></a-asset-item>
+            <a-asset-item id="stand1" src="assets/models/mm.glb" position="0 -1 0"></a-asset-item>
+            <a-asset-item id="stand2" src="assets/models/tt.glb" position="0 -1 0"></a-asset-item>
+            <!-- <audio id="magic" src="assets/sound/magic.mp3" preload="auto"></audio> -->
+        </a-assets>
+
+
+        <!-- create default environment -->
+        
+        <a-entity environment="preset: forest"></a-entity>
+        <a-entity light="color: #e30000; intensity: 4.22" position="-9 8 0"></a-entity>
+
+            <a-gltf-model src="#stand" scale="16.58175 16.58175 16.58175" position="9.01439 15.58379 -11.51602">
+                <a-sound src="assets/sound/magic.mp3" autoplay="true" sound=""></a-sound>
+        </a-gltf-model>
+            <a-sound src="assets/sound/magic.mp3" autoplay="true" sound=""></a-sound>
+    </a-gltf-model>
+
+    <a-gltf-model src="#stand2" scale="16.58175 18.58175 16.58175" position="-7.26784 15.25384 -11.51602" gltf-model="assets/models/tt.glb">
+        <a-sound src="assets/sound/magic.mp3" autoplay="true" sound=""></a-sound>
+    </a-gltf-model>
+
+<a-gltf-model src="#stand2" scale="16.58175 18.58175 16.58175" position="9.01439 15.58379 -11.51602">
+    <a-sound src="assets/sound/magic.mp3" autoplay="true" sound=""></a-sound>
+</a-gltf-model>
+<a-sound src="assets/sound/magic.mp3" autoplay="true" sound=""></a-sound>
+</a-gltf-model>
+
+    
+        <a-entity id="cameraRig" position="0 0.1 0">
+                <a-entity camera wasd-controls look-controls></a-entity>
+                <a-entity id="rightHand" mixin="teleport" laser-controls="hand: right" oculus-go-controls="hand: right"></a-entity>
+        </a-entity>
+        
+    </a-scene>
+</body>
+</html>
