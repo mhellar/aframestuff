@@ -33,9 +33,9 @@ AFRAME.registerComponent('circle1', {
                 let items = 32;
                 for (var i = 0; i < items; i++) {
 
-                    let x = 2 * Math.sin(2 * Math.PI * i / items);
-                    let y = 2 * Math.cos(2 * Math.PI * i / items);
-                    let z = 2 * Math.sin(2 * Math.PI * i / items);
+                    let x = 2 * Math.sin(10 * Math.PI * i / items);
+                    let y = 2 * Math.cos(10 * Math.PI * i / items);
+                    let z = 2 * Math.sin(10 * Math.PI * i / items);
 
                     let self = this;
 
@@ -72,7 +72,7 @@ AFRAME.registerComponent('circle1', {
    
   </head>
   <body>
-    <a-scene background="color:#FAFAFA">
+    <a-scene fog="type: linear; color: #AAB; far: 200; near: 0">
         <a-sky color="black"></a-sky>
         <a-assets>
                 <a-asset-item id="thing-obj" src="models/thing.obj"></a-asset-item>
@@ -86,6 +86,7 @@ AFRAME.registerComponent('circle1', {
 
                 <audio id="song" src="sound.mp3" autoplay loop></audio>
         </a-assets>
+        <a-entity circle="amount:1;randScaleMax:1"></a-entity>
         <a-curve id="track1">
                 <a-curve-point position="0 1 2" curve-point=""></a-curve-point>
                 <a-curve-point position="0 1 -3000"></a-curve-point>
@@ -93,15 +94,18 @@ AFRAME.registerComponent('circle1', {
             <a-draw-curve curveref="#track1" material="shader: line; color: blue;"></a-draw-curve>
 
             <a-entity clone-along-curve="curve: #track1; spacing: 0.2; scale: 1 1 1; rotation: 0 0 0;" geometry="primitive:box; height:0.1; width:0.2; depth:0.1"></a-entity>
-        <a-obj-model position="-12.60543 -4.10966 -4.37415" scale="2 2 2" src="#thing-obj" mtl="#thing-mtl" material="" obj-model=""></a-obj-model>
+        <a-obj-model position="-12.60543 -4.10966 -4.37415" scale="2 2 2" src="#thing-obj" mtl="#thing-mtl" material="" obj-model=""  ></a-obj-model>
 
-        <a-obj-model position="-12.60543 -14.98662 -41.39989" scale="2 2 2" src="#thing2-obj" mtl="#thing2-mtl" material="" obj-model=""></a-obj-model>
+        <a-obj-model position="-12.60543 -14.98662 -41.39989" scale="2 2 2" src="#thing2-obj" mtl="#thing2-mtl" material="" obj-model="" ></a-obj-model>
 
-        <!-- <a-obj-model position="-68.87303 -128.43196 -35.89804" scale="29.51925 32.9673 32.96691" src="#thing3-obj" mtl="#thing3-mtl" material="" obj-model=""></a-obj-model> -->
+        <a-obj-model position="-114.49736 -105.97455 -946.59593" scale="17.78116 17.78116 17.78116" src="#thing-obj" mtl="#thing-mtl" material="" obj-model="" rotation="90.00021045914971 0.9872062810104083 0" ></a-obj-model>
+        <!-- <a-obj-model position="-68.87303 -128.43196 -35.89804" scale="29.51925 32.9673 32.96691" src="#thing3-obj" mtl="#thing3-mtl" material="" obj-model="" ></a-obj-model> -->
 
-        <a-obj-model position="-73.86266 -159.07392 -35.89804" scale="36.20884 40.43828 40.43781" src="#thing3-obj" mtl="#thing3-mtl"></a-obj-model>
+        <a-obj-model position="-73.86266 -159.07392 -35.89804" scale="36.20884 40.43828 40.43781" src="#thing3-obj" mtl="#thing3-mtl" ></a-obj-model>
 
-        <a-entity circle1 position="0 0 -160" scale="10 10 10"></a-entity>
+        <a-obj-model position="-134.45811 -132.51654 -611.33596" scale="21.35203 21.35203 21.35203" src="#thing-obj" mtl="#thing-mtl" material="" obj-model="" rotation="90 0 0" ></a-obj-model>
+
+        <a-entity circle1="" position="0 0 -1050.6434" scale="10 10 10"></a-entity>
 
         <!-- <a-obj-model position="-12.60543 -14.98662 -41.39989" scale="2 2 2" src="#thing3-obj" mtl="#thing3-mtl" material="" obj-model=""></a-obj-model> -->
       <a-plane position="0 0 -4" rotation="-90 0 0" width="4" height="4" color="#7BC8A4" shadow></a-plane>

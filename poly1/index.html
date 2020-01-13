@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>poly1</title>
+    <meta name="description" content="poly1">
+    <script src="https://aframe.io/releases/1.0.3/aframe.min.js"></script>
+    <script src="https://rawgit.com/fernandojsg/aframe-teleport-controls/master/dist/aframe-teleport-controls.min.js"></script>
+    <script src="https://unpkg.com/aframe-input-mapping-component/dist/aframe-input-mapping-component.min.js"></script>
+    <script src="https://unpkg.com/aframe-haptics-component/dist/aframe-haptics-component.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/donmccurdy/aframe-extras@v6.0.1/dist/aframe-extras.min.js"></script>
+    <script src="//cdn.rawgit.com/donmccurdy/aframe-physics-system/v4.0.1/dist/aframe-physics-system.min.js"></script>
+    <script src="aframe-shader-frog.js"></script>
+    <script src="component.js"></script>
+    
+  </head>
+  <body>
+    <a-scene physics="debug:false; gravity:2.6”>
+      <a-assets>
+        <img id="groundTexture" src="https://cdn.aframe.io/a-painter/images/floor.jpg" crossorigin="anonymous">
+        <img id="skyTexture" src="https://cdn.aframe.io/a-painter/images/sky.jpg" crossorigin="anonymous">
+          <a-asset-item id="nef" src="model/ghost_in_the_shell_geisha_mask/scene.gltf"></a-asset-item>
+          <a-asset-item id="room" src="model/room/CubeRoom.gltf"></a-asset-item>
+          <a-mixin id="teleport" teleport-controls="type: parabolic; button: trigger; cameraRig: #cameraRig; defaultPlaneSize: 1000; "></a-mixin>
+        <a-mixin id="voxel"
+        gltf-model="#nef"
+        scale="5 5 5"
+           material="shader: standard"
+           random-color
+           dynamic-body
+           spring="target: #floor;
+           damping: .5;
+           stiffness: .5;"
+        ></a-mixin>
+      </a-assets>
+
+    
+<a-entity gltf-model="#nef"scale="5 5 5" position="0 6.8 0" static-body
+animation__rotation="property: rotation; dir: alternate; dur: 50000; easing: easeInSine; loop: true; to: 0 360 0"></a-entity>
+<a-entity gltf-model="#room" scale="10 10 10" position="0 .1 0"></a-entity>
+<a-entity logthree></a-entity>
+
+
+
+      <!-- Background sky. -->
+      <!-- <a-sky height="2048" radius="30" src="#skyTexture" theta-length="90" width="2048"></a-sky> -->
+
+      <!-- Ground. -->
+      <!-- <a-circle src="#groundTexture" rotation="-90 .5 0" radius="32"></a-circle> -->
+      <a-entity id="floor"
+                static-body
+                rotation="-90 -1 0"
+                geometry="primitive: plane; width: 100; height: 100"
+                repeat: 80 80">
+      </a-entity>
+      <!--Tracked controls. -->
+
+      <a-entity id="cameraRig" position="0 .7 0">
+        <a-entity id="head"></a-entity>
+        <a-entity camera wasd-controls look-controls></a-entity>
+        <a-entity 
+        id="lefthand"
+        spawn="event: click; mixin: voxel"
+        laser-controls="hand: left"
+        hand-controls="left"
+        controller-cursor
+        ></a-entity>
+    <a-entity mixin="teleport" teleport-controls="cameraRig: #cameraRig; teleportOrigin: #head;" shadow="cast:true" haptics="events: triggerdown; dur: 50; force: 0.5"
+    hand-controls="right"></a-entity>
+</a-entity>
+      </a-entity>
+      <!-- <a-camera>
+        <a-cursor
+          intersection-spawn="event: click; mixin: voxel"
+        ></a-cursor>
+      </a-camera> -->
+    </a-scene>
+  </body>
+</html>
