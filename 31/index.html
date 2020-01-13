@@ -1,0 +1,107 @@
+<html>
+
+<head>
+    <title>VR Demo</title>
+    <script src="https://aframe.io/releases/1.0.3/aframe.min.js"></script>
+<body>
+    <script src="https://rawgit.com/feiss/aframe-environment-component/master/dist/aframe-environment-component.min.js"></script>
+    <script src="https://rawgit.com/protyze/aframe-curve-component/master/dist/aframe-curve-component.min.js"></script>
+    <script src="https://rawgit.com/protyze/aframe-alongpath-component/master/dist/aframe-alongpath-component.min.js"></script>
+    <script
+    src="https://unpkg.com/aframe-audioanalyser-component@5.4.0/dist/aframe-audioanalyser-component.min.js"></script>
+  <script src="js/audioanalyser-volume-scale.js"></script>
+  <!-- <script src="js/audioanalyser-beat-scale.js"></script> -->
+  <script src="js/aud.js"></script>
+  <script src="js/aframe-shader-frog.js"></script>
+
+    <a-scene id="scene" vr-mode-ui="enabled: true" physics="gravity:-9.6">
+        <a-assets>
+            <!-- <a-mixin id="mycursor" position="0 0 -0.5" raycaster geometry="primitive: ring; radiusOuter: 0.008; radiusInner: 0.005; segmentsTheta: 32" material="color: white; shader: flat" static-body="shape: sphere; sphereRadius: 0.001" super-hands="colliderEvent: raycaster-intersection;colliderEventProperty: els;colliderEndEvent:raycaster-intersection-cleared; colliderEndEventProperty: clearedEls;colliderState:"></a-mixin> -->
+            <a-mixin id="mytouch" physics-collider phase-shift collision-filter="collisionForces: false" static-body="shape: sphere; sphereRadius: 0.02" super-hands="colliderEvent: collisions; colliderEventProperty: els; colliderEndEvent: collisions; colliderEndEventProperty: clearedEls;colliderState:"></a-mixin>
+            <a-asset-item id="ahead" src="./head2.obj"></a-asset-item>
+            <audio id="song" src="plume.mp3" preload="auto"></audio>
+            <a-mixin id="light" geometry="primitive: sphere; radius: 1.5" material="color: #FFF; shader: flat" light="color: #DDDDFF; distance: 120; intensity: 3; type: point"></a-mixin>
+
+        </a-assets>
+
+        <a-entity id="enviro" position="0 -.001 0" environment="
+preset: tron; 
+groundYScale: 100; 
+fog: 0.4; 
+dressingAmount: 50; 
+groundColor2: #008eb7; 
+groundColor: #b34093; 
+groundTexture: checkerboard;
+ground: hills;
+active: true; seed: 17; 
+skyType: atmosphere; 
+skyColor: #87faf4; 
+horizonColor: #b50200;
+flatShading: true; 
+dressing: apparatus;
+dressingColor: #3cf7ed; 
+dressingScale: 0.2; 
+dressingAmount: 200;
+dressingOnPlayArea: 1;
+lightPosition: 0 0 0.660; 
+gridColor: #239893">
+
+
+</a-entity>
+<!-- ground collider keeps objets from falling -->
+<a-box static-body width=100 height=0.001 depth=100 visible="false"></a-box>
+
+        <a-curve id="track1">
+            <a-curve-point position="-16 25 -33"></a-curve-point>
+            <a-curve-point position="7 29 -57"></a-curve-point>
+            <a-curve-point position="53 18 5"></a-curve-point>
+            <a-curve-point position="22 14 17"></a-curve-point>
+            <a-curve-point position="29 18 42"></a-curve-point>
+            <a-curve-point position="27 38.45 60"></a-curve-point>
+            <a-curve-point position="-33 11.0 27"></a-curve-point>
+            <a-curve-point position="-16 24 -33"></a-curve-point>
+        </a-curve>
+        <a-draw-curve curveref="#track1" material="shader: line; color: blue;"></a-draw-curve>
+
+        <a-entity clone-along-curve="curve: #track1; spacing: 0.2; scale: 1 1 1; rotation: 0 0 0;" geometry="primitive:box; height:0.1; width:0.2; depth:0.1"></a-entity>
+
+        <a-entity>
+            <!-- <a-entity id="sun" obj-model="obj: #ahead;" material="color: #ff0000; metalness: .5;" scale="5 5 5" rotation="0 0 180" position="0 20 -25" sound="src:./plume.mp3;autoplay:true; loop:true;">
+            </a-entity> -->
+            <a-sphere radius="18" position="0 5 0" scale="10 10 10" side="double"
+            shader-frog="src:url(shaders/Ova.json)"
+            ></a-sphere>
+        </a-entity>
+
+        <a-entity animation="property: rotation; to: 0 360 0; dur: 30000; easing: linear; loop: true">
+            <a-entity id="sun" obj-model="obj: #ahead;" material="color: #fff; metalness: 1;" scale="13 13 13" rotation="0 0 0" position="0 20 -25">
+                <a-sound src="assets/sound/plume.mp3" autoplay="true" volume="1.5"></a-sound>
+            </a-entity>
+        </a-entity>
+
+        <a-entity animation="property: rotation; to: 360 0 0; dur: 10000; easing: linear; loop: true">
+            <a-entity mixin="light" position="0 0 40"></a-entity>
+            </a-entity>
+
+            <a-entity animation="property: rotation; to: 0 360 0; dur: 10000; easing: linear; loop: true">
+                <a-entity mixin="light" position="0 10 30"></a-entity>
+                </a-entity>
+
+
+        <!-- CAMERA RIG FOR TELEPORT-CONTROLS AND SUPER-HANDS -->
+        <a-entity id="cameraRig" alongpath="curve: #track1; loop: true; dur: 120000">
+            <a-camera></a-camera>
+            <a-entity id="head" progressive-controls="gazeMixin: mycursor; touchMixin: mytouch; override: true; objects: .obj, .button; maxLevel: point;">
+                <a-entity teleport-controls="cameraRig: #cameraRig; teleportOrigin: #head;" shadow="cast:true" haptics="events: triggerdown; dur: 50; force: 0.5" class="left-controller"></a-entity>
+                <a-entity teleport-controls="cameraRig: #cameraRig; teleportOrigin: #head;" shadow="cast:true" haptics="events: triggerdown; dur: 50; force: 0.5" class="right-controller"></a-entity>
+            </a-entity>
+        </a-entity>
+
+        
+
+
+    </a-scene>
+
+</body>
+
+</html>
