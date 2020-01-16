@@ -1,0 +1,130 @@
+<!-- A-Frame 0.7.1 -->
+<!-- <script src="//aframe.io/releases/0.7.1/aframe.min.js"></script> -->
+
+<!-- A-Frame 0.8.* -->
+<script src="//aframe.io/releases/0.8.2/aframe.min.js"></script>
+
+<!-- A-Frame Master -->
+<!-- <script src="https://rawgit.com/aframevr/aframe/master/dist/aframe-master.min.js"></script> -->
+
+<!-- A-Frame Extras -->
+<script src="//unpkg.com/aframe-extras@4.1.2/dist/aframe-extras.min.js"></script>
+
+<!-- A-Frame Physics -->
+<!-- <script src="//unpkg.com/aframe-physics-system@3.1.1/dist/aframe-physics-system.min.js"></script> -->
+
+<!-- A-Frame Animation -->
+<script src="//unpkg.com/aframe-animation-component@4.2.0/dist/aframe-animation-component.min.js"></script>
+
+<!-- A-Frame Environment -->
+<!-- <script src="//unpkg.com/aframe-environment-component@1.0.0/dist/aframe-environment-component.min.js"></script> -->
+
+<!-- Nav Mesh Inspector Plugin -->
+<!-- Add inspector-plugin-recast component to a-scene -->
+<!-- <script src="https://recast-api.donmccurdy.com/aframe-inspector-plugin-recast.js"></script> -->
+
+<!-- <script src="https://unpkg.com/aframe-star-system-component@1.0.0/index.js"></script> -->
+
+<!-- Rect Light Stuff -->
+<!-- <script src="https://threejs.org/examples/js/lights/RectAreaLightUniformsLib.js"></script> -->
+
+<!-- A-Frame Audio Analyser -->
+<script src="https://unpkg.com/aframe-audioanalyser-component@3.0.3/dist/aframe-audioanalyser-component.min.js"></script>
+
+<script src="https://unpkg.com/aframe-audioanalyser-component@3.0.3/examples/components/audioanalyser-volume-scale.js"></script>
+
+<script src="https://unpkg.com/aframe-audioanalyser-component@3.0.3/examples/components/color-on-beat.js"></script>
+
+<script src="https://unpkg.com/aframe-audioanalyser-component@3.0.3/examples/components/audioanalyser-levels-scale.js"></script>
+
+<!-- MODAL -->
+<div id="modal" style="width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 999999; position: absolute; display: block; top: 0; bottom: 0; left: 0; right: 0">
+  <p style="color: white; font-family: Arial;">Click or touch to begin.</p>
+</div>
+
+<!-- SCENE -->
+<a-scene renderer="gammaOutput: true;" light="defaultLightsEnabled: false;" stats="false" vr-mode-ui="enabled: true;" background="color: black;">
+  
+  <!-- ASSETS -->
+  <a-assets>
+    <audio id="music" src="https://ucarecdn.com/1a5ac0eb-399d-4627-9e55-a90b9a4306af/" loop="true" crossorigin="anonymous"></audio>
+    <img id="space" src="https://ucarecdn.com/eb98ecdc-417c-46b7-a8f6-96b9501236a7/" crossorigin="anonymous" alt="Space">
+    <a-mixin geometry="primitive: sphere; segmentsHeight: 6; segmentsWidth: 8;" id="sphere" material="wireframe: true; shader: flat;" color-on-beat="analyserEl: #analyser;" animation="property: object3D.rotation.y; to: 360; easing: linear; autoplay: true; loop: true; dur: 500000;"></a-mixin>
+  </a-assets>
+  
+  <!-- CAMERA -->
+  <a-entity id="rig" movement-controls="constrainToNavMesh: true;" position="0 0 14">
+    <a-entity camera="far: 10000;" look-controls="pointerLockEnabled: true;" position="0 1.6 0"></a-entity>
+  </a-entity>
+  
+<!--   <a-entity sound="src: #music; autoplay: true; loop: true; positional: false;"></a-entity> -->
+  
+  <!-- STAGE -->
+  <a-entity three-disabled id="stage">
+    
+    <a-entity geometry="primitive: box; height: 100; width: 100; depth: 100; segmentsHeight: 10; segmentsWidth: 10; segmentsDepth: 10;" material="color: #f33; wireframe: true; shader: flat;" color-on-beat="analyserEl: #analyser;"></a-entity>   
+    
+    <a-entity rotation="25 0 0">
+      <a-sky color="#444" radius="5000" src="#space" animation="property: rotation; to: 0 360 0; dur: 200000; loop: true; easing: linear;">
+      </a-sky>
+    </a-entity>
+    
+    <!-- Audio analyser. -->
+    <a-entity id="analyser"
+              audioanalyser="src: #music"
+              audioanalyser-waveform="radius: 0.5"
+              rotation="90 0 0"
+              position="0 30 0"></a-entity>
+    
+    <a-entity mixin="sphere" audioanalyser-volume-scale="analyserEl: #analyser; multiplier: 0.03;" position="0 6 0">
+      <a-entity mixin="sphere">
+        <a-entity mixin="sphere">
+          <a-entity mixin="sphere" audioanalyser-volume-scale="analyserEl: #analyser; multiplier: 0.05;"></a-entity>
+        </a-entity>
+      </a-entity>
+    </a-entity>
+    
+    <a-entity audioanalyser-levels-scale="analyserEl: #analyser; multiplier: 0.05;" position="0 0 -14.5">
+      
+      <a-box color="indigo" scale-y-color wireframe="false" shader="flat" position="-10 0 0"></a-box>
+      <a-box color="indigo" scale-y-color wireframe="false" shader="flat" position="-8 0 0"></a-box>
+      <a-box color="indigo" scale-y-color wireframe="false" shader="flat" position="-6 0 0"></a-box>
+      <a-box color="indigo" scale-y-color wireframe="false" shader="flat" position="-4 0 0"></a-box>
+      <a-box color="indigo" scale-y-color wireframe="false" shader="flat" position="-2 0 0"></a-box>
+      <a-box color="indigo" scale-y-color wireframe="false" shader="flat"></a-box>
+      <a-box color="indigo" scale-y-color wireframe="false" shader="flat" position="2 0 0"></a-box>
+      <a-box color="indigo" scale-y-color wireframe="false" shader="flat" position="4 0 0"></a-box>
+      <a-box color="indigo" scale-y-color wireframe="false" shader="flat" position="6 0 0"></a-box>
+      <a-box color="indigo" scale-y-color wireframe="false" shader="flat" position="8 0 0"></a-box>
+      <a-box color="indigo" scale-y-color wireframe="false" shader="flat" position="10 0 0"></a-box>
+      
+    </a-entity>
+    
+<!--     <a-entity sphere  audioanalyser-volume-scale="analyserEl: #analyser; multiplier: 0.04;" position="0 2 0">
+      <a-entity sphere audioanalyser-volume-scale="analyserEl: #analyser; multiplier: 0.04;">
+        <a-entity sphere audioanalyser-volume-scale="analyserEl: #analyser; multiplier: 0.04;">
+          <a-entity sphere audioanalyser-volume-scale="analyserEl: #analyser; multiplier: 0.04;"></a-entity>
+        </a-entity>
+      </a-entity>
+    </a-entity> -->
+    
+<!--     <a-box color="#5555ff" height="2" width="2" depth="2" position="0 0 0" wireframe="true" segments-height="4" segments-width="4" segments-depth="4" three-rotate-disable shader="flat" color-on-beat="analyserEl: #analyser;" audioanalyser-volume-scale="analyserEl: #analyser; multiplier: 0.5;"></a-box> -->
+    
+<!--     <a-plane color="white" height="2" width="10" area-light="false"></a-plane> -->
+    
+    
+    <a-plane nav-mesh color="#f55" width="30" height="30" rotation="-90 0 0" wireframe="true" segments-height="10" segments-width="10" opacity="1" side="front" shader="flat" color-on-beat="analyserEl: #analyser;"></a-plane>
+    
+  </a-entity>
+  
+</a-scene>
+<script>
+var modal = document.querySelector('#modal');
+var audio = document.querySelector('#music');
+modal.addEventListener('click', function(e) {
+  // This is not working correctly on mobile
+  audio.play();
+  // console.log('clicked');
+  this.parentNode.removeChild(this);
+}, {once: true});
+</script>
