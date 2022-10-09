@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/donmccurdy/aframe-extras@v6.1.1/dist/aframe-extras.min.js"></script>
+    <script src="https://ideaspacevr.github.io/aframe-particle-system-component/dist/aframe-particle-system-component.min.js"></script>
+    
+
+  </head>
+  <body>
+    <a-scene>
+        <a-assets>
+            <a-asset-item id="pano" src="assets/fwjlee1.glb"></a-asset-item>
+            <a-asset-item id="firework" src="assets/firework.glb"></a-asset-item>
+            <a-asset-item id="chinese_new_year_lantern" src="assets/chinese_new_year_lantern.glb"></a-asset-item>
+          </a-assets>
+          <a-entity position="0 2.25 -15" particle-system="color: #DC143C,#FFF"></a-entity>
+          <a-entity gltf-model="#pano" animation-mixer position="0.39 -0.7 -37.15" scale="2 2 2"></a-entity>
+          <!-- <a-entity gltf-model="#firework" animation-mixer position="0.39 -0.7 -37.15" scale=".2 .2 .2" rotation="0 -92 0"></a-entity>
+          <a-entity gltf-model="#chinese_new_year_lantern" animation-mixer position="0.39 -0.7 -37.15" scale=".2 .2 .2" rotation="0 -92 0"></a-entity>
+           -->
+    </a-scene>
+  </body>
+</html>
