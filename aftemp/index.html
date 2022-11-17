@@ -1,0 +1,101 @@
+<!-- include A-Frame obviously -->
+<script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
+<!-- A-Frame extras for GLTF animations -->
+<script src="https://cdn.jsdelivr.net/gh/donmccurdy/aframe-extras@v6.0.1/dist/aframe-extras.min.js"></script>
+
+<script>
+    // register your component here with a name
+    AFRAME.registerComponent('hello-world', {
+        schema: {
+            amount: {
+                type: 'number',
+                default: 10
+            },
+            color: {
+                type: 'color',
+                default: 'red'
+            },
+            duration: {
+                type: 'number',
+                default: 10000
+            },
+            randScaleMax: {
+                type: 'number',
+                default: 3
+            },
+        },
+        //custom function
+        getRandomInt: function (min, max) {
+            min = Math.ceil(min);
+            max = Math.floor(max);
+            return Math.floor(Math.random() * (max - min)) + min; //The maximum is exclusive and the minimum is inclusive
+        },
+        getRandomColor: function () {
+            var letters = '0123456789ABCDEF'.split('');
+            var color = '#';
+            for (var i = 0; i < 6; i++) {
+                color += letters[Math.floor(Math.random() * 16)];
+            }
+            return color;
+        },
+        init: function () {
+            for (let i = 1; i < this.data.amount; i++) {
+                var box = document.createElement('a-torus-knot');
+                box.setAttribute('color', this.getRandomColor());
+                box.setAttribute('position', '0 0 0');
+                box.setAttribute('arc', this.getRandomInt(1, this.data.randScaleMax));
+                box.setAttribute('p', this.getRandomInt(1, this.data.randScaleMax));
+                box.setAttribute('q', this.getRandomInt(1, this.data.randScaleMax));
+                box.setAttribute('radius-tubular', i * 0.009);
+                box.setAttribute('p', this.getRandomInt(1, this.data.randScaleMax));
+
+
+                box.setAttribute('scale', '0.09 0.09 0.09');
+                box.setAttribute('rotation', i + ' ' + i + ' ' + i);
+                box.setAttribute('radius', i);
+                box.setAttribute('metalness', 1);
+                box.setAttribute('animation__rotate', {
+                    property: 'rotation',
+                    to: "'" + this.getRandomInt(1, 720) + " " + this.getRandomInt(1, 720) + " " + this.getRandomInt(1, 720) + "'",
+                    loop: 'true',
+                    easing: 'easeInSine',
+                    dur: 120000
+                });
+                // box.setAttribute('animation__scale', {
+                //     property: 'position',
+                //     to: "'" + this.getRandomInt(1, 30) + " " + this.getRandomInt(1, 30) + " " + this.getRandomInt(1, 30) + "'",
+                //     loop: 'true',
+                //     easing: 'easeInOutElastic',
+                //     dur: 10000
+                // });
+                box.setAttribute('animation__color', {
+                    property: 'material.color',
+                    dir: 'alternate',
+                    easing: 'easeInOutElastic',
+                    to: '#FFF',
+                    loop: 'true',
+                    dur: 100000
+                });
+                this.el.appendChild(box);
+            }
+        }
+    });
+</script>
+
+
+<body style='margin : 0px; overflow: hidden;'>
+    <a-assets>
+        <a-asset-item id="tree" src="84f6d2fb2c84.glb"></a-asset-item>
+      </a-assets>
+    
+    <a-scene>
+        <!-- Aframe asset system. preload assets here -->
+        <!-- create your content here. just a box for now -->
+        <a-entity gltf-model="84f6d2fb2c84.glb"></a-entity>
+        <a-entity hello-world="amount:100;randScaleMax:3" position="2.7 2 5.996" scale=".281 .281 .281">
+        </a-entity>
+    </a-scene>
+</body>
+
+
+<html>
