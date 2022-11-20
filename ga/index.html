@@ -2,6 +2,8 @@
 <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
 <!-- A-Frame extras for GLTF animations -->
 <script src="https://cdn.jsdelivr.net/gh/donmccurdy/aframe-extras@v6.0.1/dist/aframe-extras.min.js"></script>
+<script src="aframe-shaderfrog-component.min.js"></script>
+
 
 <script>
     // register your component here with a name
@@ -54,6 +56,7 @@
                 box.setAttribute('rotation', i + ' ' + i + ' ' + i);
                 box.setAttribute('radius', i);
                 box.setAttribute('metalness', 1);
+                box.setAttribute('shader-frog',"name:Psycho_Shader");
                 box.setAttribute('animation__rotate', {
                     property: 'rotation',
                     to: "'" + this.getRandomInt(1, 720) + " " + this.getRandomInt(1, 720) + " " + this.getRandomInt(1, 720) + "'",
