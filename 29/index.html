@@ -1,17 +1,376 @@
+<!DOCTYPE html>
 <html>
 
 <head>
-    <script src="https://aframe.io/releases/0.9.2/aframe.min.js"></script>
-    <script src="https://unpkg.com/aframe-environment-component/dist/aframe-environment-component.min.js"></script>
-    <script src="https://rawgit.com/fernandojsg/aframe-teleport-controls/master/dist/aframe-teleport-controls.min.js">
-    </script>
-    <script src="//cdn.rawgit.com/donmccurdy/aframe-extras/v6.0.0/dist/aframe-extras.min.js"></script>
-    <script src="https://unpkg.com/aframe-randomizer-components@3.0.2/dist/aframe-randomizer-components.min.js">
-    </script>
-    <script
-        src="https://unpkg.com/aframe-entity-generator-component@3.0.1/dist/aframe-entity-generator-component.min.js">
-    </script>
+    <meta charset="utf-8">
+    <title>Acoustic Spaces — Forest Monastery (Massive)</title>
+    <script src="https://aframe.io/releases/1.8.0/aframe.min.js"></script>
+    <script src="https://unpkg.com/aframe-environment-component@1.5.0/dist/aframe-environment-component.min.js"></script>
+    <script src="https://unpkg.com/aframe-blink-controls/dist/aframe-blink-controls.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/aframe-extras@7.7.0/dist/aframe-extras.min.js"></script>
+    <script src="https://unpkg.com/aframe-randomizer-components@3.0.2/dist/aframe-randomizer-components.min.js"></script>
+    <script src="https://unpkg.com/aframe-entity-generator-component@3.0.1/dist/aframe-entity-generator-component.min.js"></script>
+
+    <style>
+        #audio-gate {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(10, 14, 12, 0.92);
+            color: #dfe8e2;
+            font-family: monospace;
+            font-size: 18px;
+            text-align: center;
+            cursor: pointer;
+            padding: 24px;
+        }
+    </style>
+
     <script>
+        /* ============================================================
+           ACOUSTIC SPACES for A-Frame 1.8 — MASSIVE SCALE EDITION
+           World is ~4x. The player stays 1.6m tall: that contrast is
+           what sells the scale. Reverb zones, panner distances, fog,
+           and teleport reach are all retuned to match.
+           ============================================================ */
+
+        AFRAME.registerSystem('acoustics', {
+            init: function () {
+                this.ctx = null;
+                this.ready = false;
+                this.zones = [];
+                this.pending = [];          // callbacks waiting for ctx
+                this._v = new THREE.Vector3();
+                this._q = new THREE.Quaternion();
+                this._fwd = new THREE.Vector3();
+                this._up = new THREE.Vector3();
+                this._lastZoneUpdate = 0;
+
+                var start = this.start.bind(this);
+                var gate = document.getElementById('audio-gate');
+                if (gate) gate.addEventListener('click', start);
+                this.el.addEventListener('enter-vr', start);
+                window.addEventListener('click', start, { once: true });
+            },
+
+            /* Call once, on a user gesture (Quest/Chrome require it). */
+            start: function () {
+                if (this.ctx) { this.ctx.resume(); this._hideGate(); return; }
+                var ctx = this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+
+                this.master = ctx.createGain();
+                this.master.gain.value = 1.0;
+                this.master.connect(ctx.destination);
+
+                this.dry = ctx.createGain();
+                this.dry.gain.value = 1.0;
+                this.dry.connect(this.master);
+
+                /* All sources send here; this bus fans out to every zone. */
+                this.reverbSend = ctx.createGain();
+                this.reverbSend.gain.value = 1.0;
+
+                this.ready = true;
+                this.pending.forEach(function (fn) { fn(ctx); });
+                this.pending = [];
+                this._hideGate();
+                ctx.resume();
+            },
+
+            _hideGate: function () {
+                var gate = document.getElementById('audio-gate');
+                if (gate) gate.style.display = 'none';
+            },
+
+            whenReady: function (fn) {
+                if (this.ready) fn(this.ctx);
+                else this.pending.push(fn);
+            },
+
+            registerZone: function (zone) { this.zones.push(zone); },
+
+            tick: function (time) {
+                if (!this.ready || !this.el.camera) return;
+
+                /* --- follow the head --- */
+                var cam = this.el.camera;
+                cam.getWorldPosition(this._v);
+                cam.getWorldQuaternion(this._q);
+                this._fwd.set(0, 0, -1).applyQuaternion(this._q);
+                this._up.set(0, 1, 0).applyQuaternion(this._q);
+
+                var L = this.ctx.listener, t = this.ctx.currentTime;
+                if (L.positionX) {
+                    var s = 0.02; /* smoothing — raise if zipper noise on fast turns */
+                    L.positionX.setTargetAtTime(this._v.x, t, s);
+                    L.positionY.setTargetAtTime(this._v.y, t, s);
+                    L.positionZ.setTargetAtTime(this._v.z, t, s);
+                    L.forwardX.setTargetAtTime(this._fwd.x, t, s);
+                    L.forwardY.setTargetAtTime(this._fwd.y, t, s);
+                    L.forwardZ.setTargetAtTime(this._fwd.z, t, s);
+                    L.upX.setTargetAtTime(this._up.x, t, s);
+                    L.upY.setTargetAtTime(this._up.y, t, s);
+                    L.upZ.setTargetAtTime(this._up.z, t, s);
+                } else { /* older WebAudio fallback */
+                    L.setPosition(this._v.x, this._v.y, this._v.z);
+                    L.setOrientation(this._fwd.x, this._fwd.y, this._fwd.z,
+                        this._up.x, this._up.y, this._up.z);
+                }
+
+                /* --- crossfade zones (10x/sec is plenty; gains are smoothed) --- */
+                if (time - this._lastZoneUpdate < 100) return;
+                this._lastZoneUpdate = time;
+
+                var maxNonAmbient = 0, i, z, w;
+                for (i = 0; i < this.zones.length; i++) {
+                    z = this.zones[i];
+                    if (!z.node || z.data.ambient) continue;
+                    w = z.weightAt(this._v);
+                    z._w = w;
+                    if (w > maxNonAmbient) maxNonAmbient = w;
+                }
+                for (i = 0; i < this.zones.length; i++) {
+                    z = this.zones[i];
+                    if (!z.node) continue;
+                    w = z.data.ambient ? (1 - maxNonAmbient) : z._w;
+                    z.wetGain.gain.setTargetAtTime(w * z.data.wet, t, 0.25);
+                }
+            }
+        });
+
+
+        AFRAME.registerComponent('reverb-zone', {
+            schema: {
+                radius: { default: 5 },      /* full-wet inside this distance */
+                fade: { default: 3 },        /* crossfade band beyond radius (m) */
+                wet: { default: 0.6 },       /* max wet level for this space */
+                seconds: { default: 2.5 },   /* IR length (synth only) */
+                decay: { default: 2.5 },     /* higher = faster die-off (synth) */
+                tone: { default: 3000 },     /* lowpass Hz — lower = darker stone */
+                predelay: { default: 0.02 }, /* seconds before first reflection */
+                irSrc: { default: '' },      /* URL of a real IR file (overrides synth) */
+                ambient: { default: false }  /* the "everywhere else" space */
+            },
+
+            init: function () {
+                this.node = null;
+                this._w = 0;
+                var self = this;
+                var sys = this.el.sceneEl.systems.acoustics;
+                sys.registerZone(this);
+
+                sys.whenReady(function (ctx) {
+                    self.node = ctx.createConvolver();
+                    self.wetGain = ctx.createGain();
+                    self.wetGain.gain.value = 0;
+                    sys.reverbSend.connect(self.node);
+                    self.node.connect(self.wetGain);
+                    self.wetGain.connect(sys.master);
+
+                    if (self.data.irSrc) {
+                        fetch(self.data.irSrc)
+                            .then(function (r) { return r.arrayBuffer(); })
+                            .then(function (b) { return ctx.decodeAudioData(b); })
+                            .then(function (buf) { self.node.buffer = buf; })
+                            .catch(function (e) {
+                                console.warn('reverb-zone: IR load failed, synthesizing.', e);
+                                self.node.buffer = self.synthIR(ctx);
+                            });
+                    } else {
+                        self.node.buffer = self.synthIR(ctx);
+                    }
+                });
+
+                /* ?debug=1 shows zone boundaries */
+                if (/[?&]debug/.test(location.search)) {
+                    this.el.setAttribute('geometry',
+                        'primitive: sphere; radius: ' + this.data.radius);
+                    this.el.setAttribute('material',
+                        'wireframe: true; color: #4fd; opacity: 0.35; transparent: true');
+                }
+            },
+
+            /* Exponentially decaying noise through a one-pole lowpass:
+               a surprisingly convincing stone room. Swap for real IRs
+               via irSrc when you have them. */
+            synthIR: function (ctx) {
+                var rate = ctx.sampleRate;
+                var pre = Math.floor(rate * this.data.predelay);
+                var len = Math.max(rate * 0.05, Math.floor(rate * this.data.seconds));
+                var buf = ctx.createBuffer(2, pre + len, rate);
+                var k = Math.exp(-2 * Math.PI * this.data.tone / rate);
+                for (var ch = 0; ch < 2; ch++) {
+                    var d = buf.getChannelData(ch), lp = 0;
+                    for (var i = 0; i < len; i++) {
+                        var white = Math.random() * 2 - 1;
+                        lp = (1 - k) * white + k * lp;
+                        d[pre + i] = lp * Math.pow(1 - i / len, this.data.decay);
+                    }
+                }
+                return buf;
+            },
+
+            weightAt: function (worldPos) {
+                var d = this.el.object3D.getWorldPosition(this._c || (this._c = new THREE.Vector3()))
+                    .distanceTo(worldPos);
+                if (d <= this.data.radius) return 1;
+                if (this.data.fade <= 0) return 0;
+                return Math.max(0, 1 - (d - this.data.radius) / this.data.fade);
+            }
+        });
+
+
+        AFRAME.registerComponent('spatial-source', {
+            schema: {
+                src: { default: '' },          /* '#assetId' or a URL */
+                loop: { default: true },
+                volume: { default: 1.0 },
+                send: { default: 0.6 },        /* level into the reverb bus */
+                refDistance: { default: 1.5 },
+                rolloffFactor: { default: 1.5 },
+                maxDistance: { default: 100 },
+                bed: { default: false }        /* true = non-positional ambience */
+            },
+
+            init: function () {
+                var self = this;
+                this._pos = new THREE.Vector3();
+                var sys = this.system = this.el.sceneEl.systems.acoustics;
+
+                var url = this.data.src;
+                if (url && url[0] === '#') {
+                    var elAsset = document.querySelector(url);
+                    url = elAsset ? elAsset.getAttribute('src') : '';
+                }
+                if (!url) { console.warn('spatial-source: no src on', this.el); return; }
+
+                sys.whenReady(function (ctx) {
+                    fetch(url)
+                        .then(function (r) {
+                            if (!r.ok) throw new Error(r.status + ' ' + url);
+                            return r.arrayBuffer();
+                        })
+                        .then(function (b) { return ctx.decodeAudioData(b); })
+                        .then(function (buffer) { self.buildGraph(ctx, buffer); })
+                        .catch(function (e) {
+                            console.warn('spatial-source: could not load', url, e);
+                        });
+                });
+            },
+
+            buildGraph: function (ctx, buffer) {
+                var d = this.data;
+                this.srcNode = ctx.createBufferSource();
+                this.srcNode.buffer = buffer;
+                this.srcNode.loop = d.loop;
+
+                this.gain = ctx.createGain();
+                this.gain.gain.value = d.volume;
+
+                this.sendGain = ctx.createGain();
+                this.sendGain.gain.value = d.send;
+
+                var out;
+                if (d.bed) {
+                    out = this.gain; /* plain stereo bed, no panning */
+                } else {
+                    this.panner = ctx.createPanner();
+                    this.panner.panningModel = 'HRTF';
+                    this.panner.distanceModel = 'inverse';
+                    this.panner.refDistance = d.refDistance;
+                    this.panner.rolloffFactor = d.rolloffFactor;
+                    this.panner.maxDistance = d.maxDistance;
+                    this.gain.connect(this.panner);
+                    out = this.panner;
+                }
+
+                this.srcNode.connect(this.gain);
+                out.connect(this.system.dry);
+                out.connect(this.sendGain);
+                this.sendGain.connect(this.system.reverbSend);
+                this.srcNode.start();
+            },
+
+            tick: function () {
+                if (!this.panner) return;
+                this.el.object3D.getWorldPosition(this._pos);
+                var t = this.system.ctx.currentTime;
+                if (this.panner.positionX) {
+                    this.panner.positionX.setTargetAtTime(this._pos.x, t, 0.02);
+                    this.panner.positionY.setTargetAtTime(this._pos.y, t, 0.02);
+                    this.panner.positionZ.setTargetAtTime(this._pos.z, t, 0.02);
+                } else {
+                    this.panner.setPosition(this._pos.x, this._pos.y, this._pos.z);
+                }
+            },
+
+            remove: function () {
+                if (this.srcNode) { try { this.srcNode.stop(); } catch (e) { } }
+            }
+        });
+
+
+        /* Oscillator through the same spatial + reverb chain. */
+        AFRAME.registerComponent('tone-source', {
+            schema: {
+                freq: { default: 110 },
+                type: { default: 'sine' },   /* sine | triangle | sawtooth | square */
+                volume: { default: 0.12 },
+                send: { default: 0.9 },
+                refDistance: { default: 1.5 },
+                rolloffFactor: { default: 2 }
+            },
+            init: function () {
+                var self = this;
+                this._pos = new THREE.Vector3();
+                var sys = this.system = this.el.sceneEl.systems.acoustics;
+                sys.whenReady(function (ctx) {
+                    self.osc = ctx.createOscillator();
+                    self.osc.type = self.data.type;
+                    self.osc.frequency.value = self.data.freq;
+
+                    self.gain = ctx.createGain();
+                    self.gain.gain.value = self.data.volume;
+
+                    self.panner = ctx.createPanner();
+                    self.panner.panningModel = 'HRTF';
+                    self.panner.distanceModel = 'inverse';
+                    self.panner.refDistance = self.data.refDistance;
+                    self.panner.rolloffFactor = self.data.rolloffFactor;
+
+                    self.sendGain = ctx.createGain();
+                    self.sendGain.gain.value = self.data.send;
+
+                    self.osc.connect(self.gain);
+                    self.gain.connect(self.panner);
+                    self.panner.connect(sys.dry);
+                    self.panner.connect(self.sendGain);
+                    self.sendGain.connect(sys.reverbSend);
+                    self.osc.start();
+                });
+            },
+            tick: function () {
+                if (!this.panner) return;
+                this.el.object3D.getWorldPosition(this._pos);
+                var t = this.system.ctx.currentTime;
+                if (this.panner.positionX) {
+                    this.panner.positionX.setTargetAtTime(this._pos.x, t, 0.02);
+                    this.panner.positionY.setTargetAtTime(this._pos.y, t, 0.02);
+                    this.panner.positionZ.setTargetAtTime(this._pos.z, t, 0.02);
+                } else {
+                    this.panner.setPosition(this._pos.x, this._pos.y, this._pos.z);
+                }
+            },
+            remove: function () {
+                if (this.osc) { try { this.osc.stop(); } catch (e) { } }
+            }
+        });
+
+
+        /* --- visual components — knot sizes bumped for massive scale --- */
         AFRAME.registerComponent('random-material', {
             init: function () {
                 this.el.setAttribute('material', {
@@ -29,78 +388,104 @@
                 return color;
             }
         });
+
         AFRAME.registerComponent('random-torus-knot', {
             init: function () {
                 this.el.setAttribute('geometry', {
                     primitive: 'torusKnot',
-                    radius: Math.random() * 6,
-                    radiusTubular: Math.random() * .5,
+                    radius: 6 + Math.random() * 18,        /* was 0–6, now 6–24 */
+                    radiusTubular: 0.3 + Math.random() * 1.2,
                     p: Math.round(Math.random() * 10),
                     q: Math.round(Math.random() * 10)
                 });
                 this.el.setAttribute('animation__yoyo',
-                    `property: rotation; dir: alternate; dur: 10000; yoyo: easeInOutSine; loop: true; to: 360 360 360`
+                    'property: rotation; dir: alternate; dur: 10000; easing: easeInOutSine; loop: true; to: 360 360 360'
                 );
-
             }
         });
     </script>
 </head>
 
 <body>
-    <a-scene>
+    <!-- Quest / Chrome won't start audio without a gesture -->
+    <div id="audio-gate">tap anywhere to begin<br><br>&#127911; headphones or headset recommended</div>
+
+    <a-scene acoustics>
         <a-assets>
-            <a-mixin id=" teleport" teleport-controls="type: parabolic; cameraRig: #cameraRig; defaultPlaneSize: 1000;">
-            </a-mixin>
-            <a-mixin id="light" geometry="primitive: sphere; radius: 1.5" material="color: #FFF; shader: flat"
-                light="color: #DDDDFF; distance: 120; intensity: 1ß; type: point"></a-mixin>
-            <a-mixin id="torusKnot" random-torus-knot random-material random-position="min: -40 8 -40; max: 40 40 40">
-            </a-mixin>
-            <audio id="atmos" src="assets/sound/48411__luftrum__forestsurroundings.mp3" preload="auto"></audio>
+            <a-mixin id="teleport"
+                blink-controls="cameraRig: #cameraRig; teleportOrigin: #camera; snapTurn: false; curveShootingSpeed: 18"></a-mixin>
+            <a-mixin id="light" geometry="primitive: sphere; radius: 5" material="color: #FFF; shader: flat"
+                light="color: #DDDDFF; distance: 500; intensity: 1.2; type: point"></a-mixin>
+            <!-- knots spread across a much bigger volume, and higher up -->
+            <a-mixin id="torusKnot" random-torus-knot random-material
+                random-position="min: -160 30 -160; max: 160 180 160"></a-mixin>
+
+            <audio id="atmos" src="assets/sound/glorn.wav" preload="auto"></audio>
             <audio id="grave" src="assets/sound/169975__klankbeeld__horror-ghost-22.wav" preload="auto"></audio>
 
-
+            <a-asset-item id="stand" src="assets/models/Stand_out/Stand.gltf"></a-asset-item>
+            <a-asset-item id="hallway" src="assets/models/gumusler_monastery/scene.gltf"></a-asset-item>
         </a-assets>
 
-        <a-entity sound="src: #atmos; autoplay: true"></a-entity>
-        <!-- Use entity-generator component to generate 120 entities with the torusKnot mixin. -->
-        <a-entity entity-generator="mixin: torusKnot; num: 15></a-entity>
-            <!-- Lights. -->
-            <a-entity animation=" property: rotation; to: 0 0 360; dur: 4000; easing: linear; loop: true">
-            <a-entity mixin="light" position="30 0 0"></a-entity>
+        <!-- ============ ACOUSTIC SPACES (scaled 4x + retuned) ============
+             Bigger rooms = longer predelay + longer tails. The predelay
+             is doing a lot of the "this space is huge" work.
+             ?debug=1 to see the spheres. -->
+
+        <!-- everywhere else: vast open canyon — long predelay, distant slapback feel -->
+        <a-entity
+            reverb-zone="ambient: true; wet: 0.22; seconds: 2.6; decay: 3; tone: 4000; predelay: 0.07"></a-entity>
+
+        <!-- monastery interior: cathedral-sized dark stone -->
+        <a-entity position="0 8 28"
+            reverb-zone="radius: 24; fade: 12; wet: 0.9; seconds: 6.5; decay: 2; tone: 2000; predelay: 0.06"></a-entity>
+
+        <!-- the stand / shrine: still tighter than outside, but grown -->
+        <a-entity position="0 6 -12"
+            reverb-zone="radius: 12; fade: 6; wet: 0.7; seconds: 2.4; decay: 1.8; tone: 3600; predelay: 0.025"></a-entity>
+
+        <!-- ============ SOUND SOURCES ============ -->
+
+        <!-- ambience bed: light send into whichever space you're in -->
+        <a-entity spatial-source="src: #atmos; bed: true; volume: 0.8; send: 0.25"></a-entity>
+
+        <!-- test drone deep in the monastery. Delete or retune for the show. -->
+        <a-entity position="0 6 36"
+            tone-source="freq: 82.4; type: triangle; volume: 0.1; send: 0.9; refDistance: 6"></a-entity>
+
+        <!-- generated torus knots -->
+        <a-entity entity-generator="mixin: torusKnot; num: 15"></a-entity>
+
+        <!-- orbiting lights: wider, slower orbits read as bigger -->
+        <a-entity animation="property: rotation; to: 0 0 360; dur: 16000; easing: linear; loop: true">
+            <a-entity mixin="light" position="120 0 0"></a-entity>
+        </a-entity>
+        <a-entity animation="property: rotation; to: 360 0 0; dur: 16000; easing: linear; loop: true">
+            <a-entity mixin="light" position="0 0 160"></a-entity>
         </a-entity>
 
-        <a-entity animation="property: rotation; to: 360 0 0; dur: 4000; easing: linear; loop: true">
-            <a-entity mixin="light" position="0 0 40"></a-entity>
-        </a-entity>
+        <!-- environment: your spikes + towers, scaled way up.
+             Lighter fog so distance is visible — dense fog hides scale. -->
+        <a-entity environment="preset: forest; fog: 0.3; ground: spikes; groundYScale: 30;
+                               playArea: 4; dressing: towers; dressingScale: 60;
+                               dressingAmount: 20; dressingVariance: 120 120 120"></a-entity>
 
-        <a-asset-item id="stand" src="assets/models/Stand_out/Stand.gltf" position="0 -1 0"></a-asset-item>
-        <a-asset-item id="hallway" src="assets/models/gumusler_monastery/scene.gltf" scale="0.2 0.2 0.2"
-            position="0 -1 0">
-        </a-asset-item>
-        <!-- <audio id="magic" src="assets/sound/magic.mp3" preload="auto"></audio> -->
-        </a-assets>
-
-
-        <!-- create default environment -->
-        <!-- <a-entity class="environment" position="0 50 0"
-            light="type: hemisphere; color: #91dacf; intensity: 0.6; groundColor: #00df00" visible=""></a-entity> -->
-        <a-entity environment="preset: forest;fog: 0.7"></a-entity>
-
-        <a-gltf-model src="#stand" scale="2 2 2" position="0 0 -3" animation-mixer="">
-            <a-entity sound="src: #grave; autoplay: true; loop: true"></a-entity>
-            <!-- <a-sound src="assets/sound/magic.mp3" autoplay="true" sound=""></a-sound> -->
+        <!-- models: 4x -->
+        <a-gltf-model src="#stand" scale="8 8 8" position="0 0 -12" animation-mixer>
+            <!-- positional ghost: gentler rolloff so it carries across big distances -->
+            <a-entity
+                spatial-source="src: #grave; volume: 0.9; send: 0.8; refDistance: 6; rolloffFactor: 1.1; maxDistance: 500"></a-entity>
         </a-gltf-model>
-        <a-gltf-model src="#hallway" scale="1 1 1" position="0 0 7" animation-mixer>
-            <a-entity id="cameraRig" position="0 0.1 0">
-                <a-entity camera wasd-controls look-controls></a-entity>
-                <a-entity id="rightHand" mixin="teleport" laser-controls="hand: right"
-                    windows-motion-controls="hand: right" oculus-go-controls="hand: right">
-                    <a-entity id="leftHand" mixin="teleport" laser-controls="hand: left"
-                        windows-motion-controls="hand: left" oculus-go-controls="hand: left">
-                    </a-entity>
-                </a-entity>
 
+        <a-gltf-model src="#hallway" scale="4 4 4" position="0 0 28" animation-mixer></a-gltf-model>
+
+        <!-- camera rig: still human-sized — that's what makes it feel massive.
+             Faster wasd for desktop traversal of the bigger map. -->
+        <a-entity id="cameraRig" position="0 0.1 0">
+            <a-entity id="camera" camera position="0 1.6 0" wasd-controls="acceleration: 220" look-controls></a-entity>
+            <a-entity id="rightHand" mixin="teleport" laser-controls="hand: right"></a-entity>
+            <a-entity id="leftHand" mixin="teleport" laser-controls="hand: left"></a-entity>
+        </a-entity>
     </a-scene>
 </body>
 
