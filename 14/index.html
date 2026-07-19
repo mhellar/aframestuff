@@ -1,80 +1,478 @@
+<!DOCTYPE html>
 <html>
 
 <head>
-    <script src="../js/aframe.min.js"></script>
-    <script src="../js/aframe-animation-component.min.js"></script>
-    <script src="../js/aframe-curve-component.min.js"></script>
-    <script src="../js/aframe-alongpath-component.min.js"></script>
-    <script src="../js/aframe-environment-component.min.js"></script>
+    <meta charset="utf-8">
+    <title>Knot Garden — Sounding</title>
+    <script src="https://aframe.io/releases/1.8.0/aframe.min.js"></script>
+    <script src="https://unpkg.com/aframe-environment-component@1.5.0/dist/aframe-environment-component.min.js"></script>
+
+    <style>
+        #audio-gate {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(8, 6, 16, 0.93);
+            color: #87faf4;
+            font-family: monospace;
+            font-size: 18px;
+            text-align: center;
+            cursor: pointer;
+            padding: 24px;
+        }
+    </style>
 
     <script>
-        // register your component here with a name
-        AFRAME.registerComponent('hello-world', {
-            schema: {
-                amount: {
-                    type: 'number',
-                    default: 10
-                },
-                color: {
-                    type: 'color',
-                    default: 'red'
-                },
-                duration: {
-                    type: 'number',
-                    default: 10000
-                },
-                randScaleMax: {
-                    type: 'number',
-                    default: 3
-                },
-            },
-            //custom function
-            getRandomInt: function (min, max) {
-                min = Math.ceil(min);
-                max = Math.floor(max);
-                return Math.floor(Math.random() * (max - min)) + min; //The maximum is exclusive and the minimum is inclusive
+        /* ============================================================
+           KNOT GARDEN — SOUNDING (show version)
+
+           Each knot cluster is a chord voice: 3 slightly-detuned
+           oscillators on a shared pentatonic mode, swelling on its
+           own slow LFO. The SAME LFO phase drives the cluster's
+           visual breathing, so what you see pulsing is what you
+           hear swelling. The camera rides the track through the
+           field; reverb zones recolor the tails along the way.
+           A limiter on the master keeps the sum civilized.
+
+           To replace synth voices with your Bitwig stems: swap a
+           cluster's `cluster-voice` for
+             spatial-source="src: ./stems/pad3.ogg; send: 0.6"
+           (mono bounces; see spatial-source below.)
+           ============================================================ */
+
+        /* ---------------- acoustics core ---------------- */
+        AFRAME.registerSystem('acoustics', {
+            init: function () {
+                this.ctx = null;
+                this.ready = false;
+                this.zones = [];
+                this.pending = [];
+                this._v = new THREE.Vector3();
+                this._q = new THREE.Quaternion();
+                this._fwd = new THREE.Vector3();
+                this._up = new THREE.Vector3();
+                this._lastZoneUpdate = 0;
+
+                var start = this.start.bind(this);
+                var gate = document.getElementById('audio-gate');
+                if (gate) gate.addEventListener('click', start);
+                this.el.addEventListener('enter-vr', start);
+                window.addEventListener('click', start, { once: true });
             },
 
+            start: function () {
+                if (this.ctx) { this.ctx.resume(); this._hideGate(); return; }
+                var ctx = this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+
+                /* master -> limiter -> out. The limiter is a safety net:
+                   threshold -3dB, hard ratio, fast attack. If the mix is
+                   healthy it does nothing. */
+                this.limiter = ctx.createDynamicsCompressor();
+                this.limiter.threshold.value = -3;
+                this.limiter.knee.value = 0;
+                this.limiter.ratio.value = 20;
+                this.limiter.attack.value = 0.003;
+                this.limiter.release.value = 0.25;
+                this.limiter.connect(ctx.destination);
+
+                this.master = ctx.createGain();
+                this.master.gain.value = 0.9;
+                this.master.connect(this.limiter);
+
+                this.dry = ctx.createGain();
+                this.dry.connect(this.master);
+
+                this.reverbSend = ctx.createGain();
+
+                this.ready = true;
+                this.pending.forEach(function (fn) { fn(ctx); });
+                this.pending = [];
+                this._hideGate();
+                ctx.resume();
+            },
+
+            _hideGate: function () {
+                var gate = document.getElementById('audio-gate');
+                if (gate) gate.style.display = 'none';
+            },
+
+            whenReady: function (fn) {
+                if (this.ready) fn(this.ctx);
+                else this.pending.push(fn);
+            },
+
+            registerZone: function (zone) { this.zones.push(zone); },
+
+            tick: function (time) {
+                if (!this.ready || !this.el.camera) return;
+
+                var cam = this.el.camera;
+                cam.getWorldPosition(this._v);
+                cam.getWorldQuaternion(this._q);
+                this._fwd.set(0, 0, -1).applyQuaternion(this._q);
+                this._up.set(0, 1, 0).applyQuaternion(this._q);
+
+                var L = this.ctx.listener, t = this.ctx.currentTime;
+                if (L.positionX) {
+                    var s = 0.02;
+                    L.positionX.setTargetAtTime(this._v.x, t, s);
+                    L.positionY.setTargetAtTime(this._v.y, t, s);
+                    L.positionZ.setTargetAtTime(this._v.z, t, s);
+                    L.forwardX.setTargetAtTime(this._fwd.x, t, s);
+                    L.forwardY.setTargetAtTime(this._fwd.y, t, s);
+                    L.forwardZ.setTargetAtTime(this._fwd.z, t, s);
+                    L.upX.setTargetAtTime(this._up.x, t, s);
+                    L.upY.setTargetAtTime(this._up.y, t, s);
+                    L.upZ.setTargetAtTime(this._up.z, t, s);
+                } else {
+                    L.setPosition(this._v.x, this._v.y, this._v.z);
+                    L.setOrientation(this._fwd.x, this._fwd.y, this._fwd.z,
+                        this._up.x, this._up.y, this._up.z);
+                }
+
+                if (time - this._lastZoneUpdate < 100) return;
+                this._lastZoneUpdate = time;
+
+                var maxNonAmbient = 0, i, z, w;
+                for (i = 0; i < this.zones.length; i++) {
+                    z = this.zones[i];
+                    if (!z.node || z.data.ambient) continue;
+                    w = z.weightAt(this._v);
+                    z._w = w;
+                    if (w > maxNonAmbient) maxNonAmbient = w;
+                }
+                for (i = 0; i < this.zones.length; i++) {
+                    z = this.zones[i];
+                    if (!z.node) continue;
+                    w = z.data.ambient ? (1 - maxNonAmbient) : z._w;
+                    z.wetGain.gain.setTargetAtTime(w * z.data.wet, t, 0.25);
+                }
+            }
+        });
+
+        AFRAME.registerComponent('reverb-zone', {
+            schema: {
+                radius: { default: 5 },
+                fade: { default: 3 },
+                wet: { default: 0.6 },
+                seconds: { default: 2.5 },
+                decay: { default: 2.5 },
+                tone: { default: 3000 },
+                predelay: { default: 0.02 },
+                irSrc: { default: '' },
+                ambient: { default: false }
+            },
+            init: function () {
+                this.node = null;
+                this._w = 0;
+                var self = this;
+                var sys = this.el.sceneEl.systems.acoustics;
+                sys.registerZone(this);
+
+                sys.whenReady(function (ctx) {
+                    self.node = ctx.createConvolver();
+                    self.wetGain = ctx.createGain();
+                    self.wetGain.gain.value = 0;
+                    sys.reverbSend.connect(self.node);
+                    self.node.connect(self.wetGain);
+                    self.wetGain.connect(sys.master);
+                    if (self.data.irSrc) {
+                        fetch(self.data.irSrc)
+                            .then(function (r) { return r.arrayBuffer(); })
+                            .then(function (b) { return ctx.decodeAudioData(b); })
+                            .then(function (buf) { self.node.buffer = buf; })
+                            .catch(function () { self.node.buffer = self.synthIR(ctx); });
+                    } else {
+                        self.node.buffer = self.synthIR(ctx);
+                    }
+                });
+
+                if (/[?&]debug/.test(location.search)) {
+                    this.el.setAttribute('geometry', 'primitive: sphere; radius: ' + this.data.radius);
+                    this.el.setAttribute('material', 'wireframe: true; color: #4fd; opacity: 0.35; transparent: true');
+                }
+            },
+            synthIR: function (ctx) {
+                var rate = ctx.sampleRate;
+                var pre = Math.floor(rate * this.data.predelay);
+                var len = Math.max(rate * 0.05, Math.floor(rate * this.data.seconds));
+                var buf = ctx.createBuffer(2, pre + len, rate);
+                var k = Math.exp(-2 * Math.PI * this.data.tone / rate);
+                for (var ch = 0; ch < 2; ch++) {
+                    var d = buf.getChannelData(ch), lp = 0;
+                    for (var i = 0; i < len; i++) {
+                        var white = Math.random() * 2 - 1;
+                        lp = (1 - k) * white + k * lp;
+                        d[pre + i] = lp * Math.pow(1 - i / len, this.data.decay);
+                    }
+                }
+                return buf;
+            },
+            weightAt: function (worldPos) {
+                var d = this.el.object3D.getWorldPosition(this._c || (this._c = new THREE.Vector3()))
+                    .distanceTo(worldPos);
+                if (d <= this.data.radius) return 1;
+                if (this.data.fade <= 0) return 0;
+                return Math.max(0, 1 - (d - this.data.radius) / this.data.fade);
+            }
+        });
+
+        /* file-based positional source — for swapping in Bitwig stems */
+        AFRAME.registerComponent('spatial-source', {
+            schema: {
+                src: { default: '' },
+                loop: { default: true },
+                volume: { default: 1.0 },
+                send: { default: 0.6 },
+                refDistance: { default: 3 },
+                rolloffFactor: { default: 1.2 },
+                maxDistance: { default: 200 },
+                bed: { default: false }
+            },
+            init: function () {
+                var self = this;
+                this._pos = new THREE.Vector3();
+                var sys = this.system = this.el.sceneEl.systems.acoustics;
+                var url = this.data.src;
+                if (url && url[0] === '#') {
+                    var a = document.querySelector(url);
+                    url = a ? a.getAttribute('src') : '';
+                }
+                if (!url) return;
+                sys.whenReady(function (ctx) {
+                    fetch(url)
+                        .then(function (r) { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
+                        .then(function (b) { return ctx.decodeAudioData(b); })
+                        .then(function (buffer) { self.buildGraph(ctx, buffer); })
+                        .catch(function (e) { console.warn('spatial-source:', url, e); });
+                });
+            },
+            buildGraph: function (ctx, buffer) {
+                var d = this.data;
+                this.srcNode = ctx.createBufferSource();
+                this.srcNode.buffer = buffer;
+                this.srcNode.loop = d.loop;
+                this.gain = ctx.createGain();
+                this.gain.gain.value = d.volume;
+                this.sendGain = ctx.createGain();
+                this.sendGain.gain.value = d.send;
+                var out;
+                if (d.bed) { out = this.gain; }
+                else {
+                    this.panner = ctx.createPanner();
+                    this.panner.panningModel = 'HRTF';
+                    this.panner.distanceModel = 'inverse';
+                    this.panner.refDistance = d.refDistance;
+                    this.panner.rolloffFactor = d.rolloffFactor;
+                    this.panner.maxDistance = d.maxDistance;
+                    this.gain.connect(this.panner);
+                    out = this.panner;
+                }
+                this.srcNode.connect(this.gain);
+                out.connect(this.system.dry);
+                out.connect(this.sendGain);
+                this.sendGain.connect(this.system.reverbSend);
+                this.srcNode.start();
+            },
+            tick: function () {
+                if (!this.panner) return;
+                this.el.object3D.getWorldPosition(this._pos);
+                var t = this.system.ctx.currentTime;
+                if (this.panner.positionX) {
+                    this.panner.positionX.setTargetAtTime(this._pos.x, t, 0.02);
+                    this.panner.positionY.setTargetAtTime(this._pos.y, t, 0.02);
+                    this.panner.positionZ.setTargetAtTime(this._pos.z, t, 0.02);
+                } else {
+                    this.panner.setPosition(this._pos.x, this._pos.y, this._pos.z);
+                }
+            },
+            remove: function () { if (this.srcNode) { try { this.srcNode.stop(); } catch (e) { } } }
+        });
+
+        /* ---------------- cluster voice ----------------
+           3 detuned oscillators on a chord, swelling on a slow LFO.
+           The LFO phase also drives the cluster's visual breathing. */
+        AFRAME.registerComponent('cluster-voice', {
+            schema: {
+                degree: { default: 0 },      /* index into the mode */
+                octave: { default: 0 },      /* 0, 1, 2... above base */
+                volume: { default: 0.055 },  /* per-voice; limiter has your back */
+                send: { default: 0.55 },
+                lfoRate: { default: 0.05 },  /* Hz — one swell every ~20s */
+                lfoPhase: { default: 0 },    /* radians; stagger the blooms */
+                breathe: { default: 0.22 },  /* visual scale depth */
+                type: { default: 'triangle' }
+            },
+            init: function () {
+                var self = this;
+                this._pos = new THREE.Vector3();
+                this._baseScale = null;
+                var sys = this.system = this.el.sceneEl.systems.acoustics;
+
+                sys.whenReady(function (ctx) {
+                    /* minor pentatonic over A1 */
+                    var MODE = [0, 3, 5, 7, 10];
+                    var base = 55 * Math.pow(2, self.data.octave +
+                        MODE[self.data.degree % MODE.length] / 12);
+                    var chord = [0, 7, 12]; /* root, fifth, octave */
+
+                    self.voiceGain = ctx.createGain();
+                    self.voiceGain.gain.value = 0.0001;
+
+                    self.panner = ctx.createPanner();
+                    self.panner.panningModel = 'HRTF';
+                    self.panner.distanceModel = 'inverse';
+                    self.panner.refDistance = 6;
+                    self.panner.rolloffFactor = 1.1;
+                    self.panner.maxDistance = 300;
+
+                    self.sendGain = ctx.createGain();
+                    self.sendGain.gain.value = self.data.send;
+
+                    self.oscs = chord.map(function (semi) {
+                        var o = ctx.createOscillator();
+                        o.type = self.data.type;
+                        var cents = (Math.random() * 8 - 4); /* +-4c drift */
+                        o.frequency.value = base * Math.pow(2, semi / 12 + cents / 1200);
+                        o.connect(self.voiceGain);
+                        o.start();
+                        return o;
+                    });
+
+                    self.voiceGain.connect(self.panner);
+                    self.panner.connect(sys.dry);
+                    self.panner.connect(self.sendGain);
+                    self.sendGain.connect(sys.reverbSend);
+                });
+            },
+            tick: function (time) {
+                if (!this.panner) return;
+                var sys = this.system, t = sys.ctx.currentTime;
+
+                /* one LFO, two jobs: amplitude swell + visual breathing */
+                var ph = 2 * Math.PI * this.data.lfoRate * (time / 1000) + this.data.lfoPhase;
+                var v = 0.5 + 0.5 * Math.sin(ph);          /* 0..1 */
+                var amp = this.data.volume * (0.12 + 0.88 * v * v); /* squared = gentler valleys */
+                this.voiceGain.gain.setTargetAtTime(amp, t, 0.1);
+
+                if (!this._baseScale) this._baseScale = this.el.object3D.scale.clone();
+                var s = 1 + this.data.breathe * v;
+                this.el.object3D.scale.set(
+                    this._baseScale.x * s, this._baseScale.y * s, this._baseScale.z * s);
+
+                this.el.object3D.getWorldPosition(this._pos);
+                if (this.panner.positionX) {
+                    this.panner.positionX.setTargetAtTime(this._pos.x, t, 0.02);
+                    this.panner.positionY.setTargetAtTime(this._pos.y, t, 0.02);
+                    this.panner.positionZ.setTargetAtTime(this._pos.z, t, 0.02);
+                } else {
+                    this.panner.setPosition(this._pos.x, this._pos.y, this._pos.z);
+                }
+            },
+            remove: function () {
+                (this.oscs || []).forEach(function (o) { try { o.stop(); } catch (e) { } });
+            }
+        });
+
+        /* ---------------- curve / ride ---------------- */
+        AFRAME.registerComponent('curve', {
+            schema: { closed: { default: true } },
+            init: function () {
+                var self = this;
+                if (this.el.hasLoaded) this.build();
+                else this.el.addEventListener('loaded', function () { self.build(); });
+            },
+            build: function () {
+                var pts = [];
+                this.el.querySelectorAll('a-curve-point').forEach(function (p) {
+                    var v = p.getAttribute('position');
+                    pts.push(new THREE.Vector3(v.x, v.y, v.z));
+                });
+                if (pts.length < 2) return;
+                this.curve = new THREE.CatmullRomCurve3(pts, this.data.closed);
+                this.el.emit('curve-updated');
+            }
+        });
+
+        AFRAME.registerComponent('draw-curve', {
+            schema: { curveref: { type: 'selector' }, color: { default: '#2244ff' }, segments: { default: 300 } },
+            init: function () {
+                var self = this;
+                var draw = function () {
+                    var c = self.data.curveref && self.data.curveref.components.curve;
+                    if (!c || !c.curve) return;
+                    var geo = new THREE.BufferGeometry().setFromPoints(c.curve.getPoints(self.data.segments));
+                    self.el.setObject3D('line', new THREE.Line(geo, new THREE.LineBasicMaterial({ color: self.data.color })));
+                };
+                if (this.data.curveref) {
+                    this.data.curveref.addEventListener('curve-updated', draw);
+                    draw();
+                }
+            }
+        });
+
+        AFRAME.registerComponent('alongpath', {
+            schema: { curve: { type: 'selector' }, dur: { default: 120000 }, loop: { default: true } },
+            init: function () { this.t0 = null; },
+            tick: function (time) {
+                var c = this.data.curve && this.data.curve.components.curve;
+                if (!c || !c.curve) return;
+                if (this.t0 === null) this.t0 = time;
+                var p = (time - this.t0) / this.data.dur;
+                p = this.data.loop ? p % 1 : Math.min(p, 1);
+                this.el.object3D.position.copy(c.curve.getPointAt(p));
+            }
+        });
+
+        AFRAME.registerPrimitive('a-curve', { defaultComponents: { curve: {} }, mappings: { closed: 'curve.closed' } });
+        AFRAME.registerPrimitive('a-curve-point', { defaultComponents: {} });
+        AFRAME.registerPrimitive('a-draw-curve', {
+            defaultComponents: { 'draw-curve': {} },
+            mappings: { curveref: 'draw-curve.curveref', color: 'draw-curve.color' }
+        });
+
+        /* ---------------- knot spawner ---------------- */
+        AFRAME.registerComponent('hello-world', {
+            schema: {
+                amount: { type: 'number', default: 10 },
+                duration: { type: 'number', default: 120000 },
+                randScaleMax: { type: 'number', default: 3 }
+            },
+            getRandomInt: function (min, max) {
+                min = Math.ceil(min); max = Math.floor(max);
+                return Math.floor(Math.random() * (max - min)) + min;
+            },
             getRandomColor: function () {
                 var letters = '0123456789ABCDEF'.split('');
                 var color = '#';
-                for (var i = 0; i < 6; i++) {
-                    color += letters[Math.floor(Math.random() * 16)];
-                }
+                for (var i = 0; i < 6; i++) color += letters[Math.floor(Math.random() * 16)];
                 return color;
             },
-
             init: function () {
                 for (let i = 1; i < this.data.amount; i++) {
-                    var box = document.createElement('a-torus-knot');
-                    box.setAttribute('color', this.getRandomColor());
-                    box.setAttribute('position', '0 2 -5');
-                    box.setAttribute('scale', this.getRandomInt(1, this.data.randScaleMax) + ' ' + this.getRandomInt(
-                        1, this.data.randScaleMax) + ' ' + this.getRandomInt(1, this.data.randScaleMax));
-                    box.setAttribute('rotation', i + ' ' + i + ' ' + i);
-                    box.setAttribute('radius', .3);
-                    box.setAttribute('metalness', 1);
-                    box.setAttribute('radius-tubular', 0.02 / i);
-
-                    box.setAttribute('p', i);
-                    box.setAttribute('q', 3);
-
-                    var anim = document.createElement('a-animation');
-                    anim.setAttribute('attribute', 'rotation');
-                    anim.setAttribute('dur', '120000');
-                    anim.setAttribute('to', i * 10 + ' ' + i * 10 + ' ' + i * 10);
-                    anim.setAttribute('repeat', 'indefinite');
-                    box.appendChild(anim)
-
-                    var anim = document.createElement('a-animation');
-                    anim.setAttribute('attribute', 'scale');
-                    anim.setAttribute('dur', '120000');
-                    anim.setAttribute('to', i * 2 + ' ' + i * 2 + ' ' + i * 2);
-                    anim.setAttribute('repeat', 'indefinite');
-                    box.appendChild(anim)
-
-                    this.el.appendChild(box);
-
+                    var knot = document.createElement('a-torus-knot');
+                    knot.setAttribute('color', this.getRandomColor());
+                    knot.setAttribute('position', '0 2 -5');
+                    knot.setAttribute('scale',
+                        this.getRandomInt(1, this.data.randScaleMax) + ' ' +
+                        this.getRandomInt(1, this.data.randScaleMax) + ' ' +
+                        this.getRandomInt(1, this.data.randScaleMax));
+                    knot.setAttribute('rotation', i + ' ' + i + ' ' + i);
+                    knot.setAttribute('radius', 0.3);
+                    knot.setAttribute('metalness', 1);
+                    knot.setAttribute('radius-tubular', 0.02 / i);
+                    knot.setAttribute('p', i);
+                    knot.setAttribute('q', 3);
+                    knot.setAttribute('animation__rot',
+                        'property: rotation; to: ' + (i * 10) + ' ' + (i * 10) + ' ' + (i * 10) +
+                        '; dur: ' + this.data.duration + '; easing: linear; loop: true');
+                    knot.setAttribute('animation__scale',
+                        'property: scale; to: ' + (i * 2) + ' ' + (i * 2) + ' ' + (i * 2) +
+                        '; dur: ' + this.data.duration + '; dir: alternate; easing: easeInOutSine; loop: true');
+                    this.el.appendChild(knot);
                 }
             }
         });
@@ -82,45 +480,67 @@
 </head>
 
 <body>
-    <a-scene>
-        <a-entity id="enviro" position="0 -.001 0" environment="
-                preset: tron; 
-                groundYScale: 100; 
-                fog: 0.6; 
-                dressingAmount: 100; 
-                groundColor2: #008eb7; 
-                groundColor: #b34093; 
-                groundTexture: checkerboard;
-                ground: spikes;
-                active: true; seed: 17; 
-                skyType: gradient; 
-                skyColor: #87faf4; 
-                horizonColor: #b100200;
-                flatShading: true; 
-                dressing: arches;
-                dressingColor: #4f30f7; 
-                dressingScale: 0.2; 
-                dressingAmount: 40;
-                dressingOnPlayArea: 1; 
-                gridColor: #239893">
-        </a-entity>
-        <a-light type="ambient" color="#222" intensity="5" light="type:point;color:#fefcff;intensity:0.6699999999999992"></a-light>
-        <!-- Attach components to an entity tag by adding the name -->
-        <a-entity hello-world="amount:20;randScaleMax:4" position="0 22.35589385257807 61.52208652198784">
-        </a-entity>
-        <a-entity hello-world="amount: 5;randScaleMax: 30;" position="45 6 15"></a-entity>
-        <a-entity hello-world="amount: 10;randScaleMax: 50;" position="27 21 -41"></a-entity>
-        <a-entity hello-world="amount: 10;randScaleMax: 50;" position="-8 22 -43"></a-entity>
-        <a-entity hello-world="amount: 10;randScaleMax: 10;" position="-8 24 12"></a-entity>
-        <a-entity hello-world="amount: 10;randScaleMax: 50;" position="27 10 38"></a-entity>
-        <a-entity hello-world="amount: 10;randScaleMax: 50;" position="53 9 12"></a-entity>
-        <a-entity hello-world="amount: 10;randScaleMax: 38;" position="-27 13 0"></a-entity>
-        <a-entity hello-world="amount: 10;randScaleMax: 38;" position="24 33 59"></a-entity>
+    <div id="audio-gate">tap anywhere to begin<br><br>&#127911; the garden is listening</div>
 
-        <!-- add a light -->
-        <a-light type="ambient" color="#222" intensity="5"></a-light>
+    <a-scene acoustics>
+        <a-entity id="enviro" position="0 -0.001 0" environment="
+            preset: tron;
+            groundYScale: 100;
+            fog: 0.6;
+            groundColor2: #008eb7;
+            groundColor: #b34093;
+            groundTexture: checkerboard;
+            ground: spikes;
+            seed: 17;
+            skyType: gradient;
+            skyColor: #87faf4;
+            horizonColor: #b50200;
+            flatShading: true;
+            dressing: arches;
+            dressingColor: #4f30f7;
+            dressingScale: 0.2;
+            dressingAmount: 40;
+            dressingOnPlayArea: 1;
+            gridColor: #239893"></a-entity>
 
-        <!-- Define the Curve -->
+        <a-light type="ambient" color="#445"></a-light>
+        <a-light type="point" color="#fefcff" intensity="0.67" position="0 40 0"></a-light>
+
+        <!-- ============ ACOUSTIC SPACES along the ride ============ -->
+        <!-- open field: metallic tron shimmer, fairly dry -->
+        <a-entity reverb-zone="ambient: true; wet: 0.2; seconds: 1.6; decay: 3; tone: 5200; predelay: 0.015"></a-entity>
+        <!-- north canyon (dense clusters around z=-42): huge dark hall -->
+        <a-entity position="10 20 -45"
+            reverb-zone="radius: 26; fade: 12; wet: 0.85; seconds: 5.5; decay: 2; tone: 2400; predelay: 0.05"></a-entity>
+        <!-- the high bloom (cluster at 24 33 59): bright glassy shimmer -->
+        <a-entity position="26 30 58"
+            reverb-zone="radius: 18; fade: 10; wet: 0.7; seconds: 2.8; decay: 1.6; tone: 6500; predelay: 0.02"></a-entity>
+
+        <!-- ============ SOUNDING CLUSTERS ============
+             degree picks the pentatonic step, octave lifts it,
+             lfoPhase staggers the blooms around the loop.
+             To use a Bitwig stem on a cluster instead, replace
+             cluster-voice with: spatial-source="src: ./stems/x.ogg" -->
+        <a-entity hello-world="amount: 20; randScaleMax: 4" position="0 22.36 61.52"
+            cluster-voice="degree: 0; octave: 1; lfoRate: 0.045; lfoPhase: 0"></a-entity>
+        <a-entity hello-world="amount: 5; randScaleMax: 30" position="45 6 15"
+            cluster-voice="degree: 2; octave: 0; lfoRate: 0.06; lfoPhase: 0.8; type: sine"></a-entity>
+        <a-entity hello-world="amount: 10; randScaleMax: 50" position="27 21 -41"
+            cluster-voice="degree: 1; octave: 1; lfoRate: 0.05; lfoPhase: 1.6"></a-entity>
+        <a-entity hello-world="amount: 10; randScaleMax: 50" position="-8 22 -43"
+            cluster-voice="degree: 3; octave: 1; lfoRate: 0.04; lfoPhase: 2.4"></a-entity>
+        <a-entity hello-world="amount: 10; randScaleMax: 10" position="-8 24 12"
+            cluster-voice="degree: 4; octave: 2; lfoRate: 0.07; lfoPhase: 3.1; type: sine"></a-entity>
+        <a-entity hello-world="amount: 10; randScaleMax: 50" position="27 10 38"
+            cluster-voice="degree: 0; octave: 2; lfoRate: 0.055; lfoPhase: 3.9; type: sine"></a-entity>
+        <a-entity hello-world="amount: 10; randScaleMax: 50" position="53 9 12"
+            cluster-voice="degree: 2; octave: 1; lfoRate: 0.048; lfoPhase: 4.7"></a-entity>
+        <a-entity hello-world="amount: 10; randScaleMax: 38" position="-27 13 0"
+            cluster-voice="degree: 3; octave: 0; lfoRate: 0.042; lfoPhase: 5.5"></a-entity>
+        <a-entity hello-world="amount: 10; randScaleMax: 38" position="24 33 59"
+            cluster-voice="degree: 4; octave: 1; lfoRate: 0.065; lfoPhase: 0.4; type: sine"></a-entity>
+
+        <!-- the track -->
         <a-curve id="track1">
             <a-curve-point position="-16 19 -33"></a-curve-point>
             <a-curve-point position="7 24 -57"></a-curve-point>
@@ -128,25 +548,17 @@
             <a-curve-point position="22 9 17"></a-curve-point>
             <a-curve-point position="29 6 42"></a-curve-point>
             <a-curve-point position="27 33.45 60"></a-curve-point>
-            <a-curve-point position="-33 6.0 27"></a-curve-point>
-            <a-curve-point position="-16 19 -33"></a-curve-point>
+            <a-curve-point position="-33 6 27"></a-curve-point>
         </a-curve>
-        <!-- Draw the Curve -->
-        <a-draw-curve curveref="#track1" material="shader: line; color: blue;"></a-draw-curve>
+        <a-draw-curve curveref="#track1" color="#2244ff"></a-draw-curve>
 
-        <!-- Clone a Box along the Curve -->
-        <!-- <a-entity clone-along-curve="curve: #track1; spacing: 0.2; scale: 1 1 1; rotation: 0 0 0;" geometry="primitive:box; height:0.1; width:0.2; depth:0.1"></a-entity> -->
-
-        <!-- Set the camera to follow the curve -->
-        <a-entity alongpath="curve: #track1; loop: true; dur: 120000">
-            <a-camera></a-camera>
+        <!-- camera rides the track; free head-look -->
+        <a-entity alongpath="curve: #track1; dur: 120000; loop: true">
+            <a-entity camera position="0 1.6 0" look-controls></a-entity>
+            <a-entity laser-controls="hand: left"></a-entity>
+            <a-entity laser-controls="hand: right"></a-entity>
         </a-entity>
-
-        <!-- <a-plane rotation="-90 0 0" color="red" width="1000" height="1000"></a-plane> -->
-
     </a-scene>
 </body>
-<script>
-</script>
 
 </html>

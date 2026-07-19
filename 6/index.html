@@ -1,45 +1,178 @@
+<!DOCTYPE html>
 <html>
 
 <head>
-    <title>VR Demo</title>
-<script type="text/javascript" src="app.js"></script></head>
+    <meta charset="utf-8">
+    <title>VR Ride — Tron Track</title>
+    <script src="https://aframe.io/releases/1.8.0/aframe.min.js"></script>
+    <script src="https://unpkg.com/aframe-environment-component@1.5.0/dist/aframe-environment-component.min.js"></script>
+
+    <script>
+        /* ============================================================
+           Modern replacements for aframe-curve-component /
+           aframe-alongpath-component (the originals were built on
+           THREE.Geometry, removed from Three.js long ago).
+           Same markup as before: a-curve, a-curve-point,
+           a-draw-curve, clone-along-curve, alongpath.
+           ============================================================ */
+
+        AFRAME.registerComponent('curve', {
+            schema: { closed: { default: true } },
+            init: function () {
+                var self = this;
+                if (this.el.hasLoaded) this.build();
+                else this.el.addEventListener('loaded', function () { self.build(); });
+            },
+            build: function () {
+                var pts = [];
+                this.el.querySelectorAll('a-curve-point').forEach(function (p) {
+                    var v = p.getAttribute('position');
+                    pts.push(new THREE.Vector3(v.x, v.y, v.z));
+                });
+                if (pts.length < 2) return;
+                /* closed catmull-rom through the points, like the original */
+                this.curve = new THREE.CatmullRomCurve3(pts, this.data.closed);
+                this.el.emit('curve-updated');
+            }
+        });
+
+        AFRAME.registerComponent('draw-curve', {
+            schema: {
+                curveref: { type: 'selector' },
+                color: { default: '#2244ff' },
+                segments: { default: 300 }
+            },
+            init: function () {
+                var self = this;
+                var draw = function () {
+                    var c = self.data.curveref && self.data.curveref.components.curve;
+                    if (!c || !c.curve) return;
+                    var geo = new THREE.BufferGeometry()
+                        .setFromPoints(c.curve.getPoints(self.data.segments));
+                    self.el.setObject3D('line',
+                        new THREE.Line(geo, new THREE.LineBasicMaterial({ color: self.data.color })));
+                };
+                if (this.data.curveref) {
+                    this.data.curveref.addEventListener('curve-updated', draw);
+                    draw();
+                }
+            }
+        });
+
+        /* Boxes along the track — now a single InstancedMesh, so
+           thousands of clones cost one draw call (Quest-friendly). */
+        AFRAME.registerComponent('clone-along-curve', {
+            schema: {
+                curve: { type: 'selector' },
+                spacing: { default: 0.2 },          /* metres between clones */
+                dimensions: { type: 'vec3', default: { x: 0.2, y: 0.1, z: 0.1 } },
+                color: { default: '#3cf7ed' }
+            },
+            init: function () {
+                var self = this;
+                var build = function () {
+                    var c = self.data.curve && self.data.curve.components.curve;
+                    if (!c || !c.curve) return;
+                    var d = self.data;
+                    var count = Math.max(1, Math.floor(c.curve.getLength() / d.spacing));
+                    var mesh = new THREE.InstancedMesh(
+                        new THREE.BoxGeometry(d.dimensions.x, d.dimensions.y, d.dimensions.z),
+                        new THREE.MeshStandardMaterial({
+                            color: d.color, metalness: 0.6, roughness: 0.3,
+                            emissive: d.color, emissiveIntensity: 0.25
+                        }),
+                        count);
+                    var dummy = new THREE.Object3D(), pos, tan;
+                    for (var i = 0; i < count; i++) {
+                        var t = i / count;
+                        pos = c.curve.getPointAt(t);
+                        tan = c.curve.getTangentAt(t);
+                        dummy.position.copy(pos);
+                        dummy.lookAt(pos.clone().add(tan)); /* orient along track */
+                        dummy.updateMatrix();
+                        mesh.setMatrixAt(i, dummy.matrix);
+                    }
+                    self.el.setObject3D('clones', mesh);
+                };
+                if (this.data.curve) {
+                    this.data.curve.addEventListener('curve-updated', build);
+                    build();
+                }
+            }
+        });
+
+        /* Rides an entity around the curve. Position only — you keep
+           free head-look while the rig travels. */
+        AFRAME.registerComponent('alongpath', {
+            schema: {
+                curve: { type: 'selector' },
+                dur: { default: 120000 },
+                loop: { default: true }
+            },
+            init: function () { this.t0 = null; },
+            tick: function (time) {
+                var c = this.data.curve && this.data.curve.components.curve;
+                if (!c || !c.curve) return;
+                if (this.t0 === null) this.t0 = time;
+                var p = (time - this.t0) / this.data.dur;
+                if (!this.data.loop && p >= 1) p = 1;
+                else p = p % 1;
+                this.el.object3D.position.copy(c.curve.getPointAt(p));
+            }
+        });
+
+        AFRAME.registerPrimitive('a-curve', { defaultComponents: { curve: {} }, mappings: { closed: 'curve.closed' } });
+        AFRAME.registerPrimitive('a-curve-point', { defaultComponents: {} });
+        AFRAME.registerPrimitive('a-draw-curve', {
+            defaultComponents: { 'draw-curve': {} },
+            mappings: { curveref: 'draw-curve.curveref', color: 'draw-curve.color' }
+        });
+
+        /* browsers block audio until a gesture — resume on first input */
+        window.addEventListener('DOMContentLoaded', function () {
+            var unlock = function () {
+                var scene = document.querySelector('a-scene');
+                if (scene && scene.audioListener && scene.audioListener.context.state !== 'running') {
+                    scene.audioListener.context.resume();
+                }
+                document.querySelectorAll('[sound]').forEach(function (el) {
+                    if (el.components.sound) el.components.sound.playSound();
+                });
+            };
+            window.addEventListener('click', unlock, { once: true });
+            document.querySelector('a-scene').addEventListener('enter-vr', unlock);
+        });
+    </script>
+</head>
 
 <body>
-    <script src="https://rawgit.com/feiss/aframe-environment-component/master/dist/aframe-environment-component.min.js"></script>
-    <script src="https://rawgit.com/protyze/aframe-curve-component/master/dist/aframe-curve-component.min.js"></script>
-    <script src="https://rawgit.com/protyze/aframe-alongpath-component/master/dist/aframe-alongpath-component.min.js"></script>
-
-    <a-scene id="scene" vr-mode-ui="enabled: true" physics="gravity:-9.6">
+    <a-scene>
         <a-assets>
-            <!-- <a-mixin id="mycursor" position="0 0 -0.5" raycaster geometry="primitive: ring; radiusOuter: 0.008; radiusInner: 0.005; segmentsTheta: 32" material="color: white; shader: flat" static-body="shape: sphere; sphereRadius: 0.001" super-hands="colliderEvent: raycaster-intersection;colliderEventProperty: els;colliderEndEvent:raycaster-intersection-cleared; colliderEndEventProperty: clearedEls;colliderState:"></a-mixin> -->
-            <a-mixin id="mytouch" physics-collider phase-shift collision-filter="collisionForces: false" static-body="shape: sphere; sphereRadius: 0.02" super-hands="colliderEvent: collisions; colliderEventProperty: els; colliderEndEvent: collisions; colliderEndEventProperty: clearedEls;colliderState:"></a-mixin>
             <a-asset-item id="ahead" src="./head.obj"></a-asset-item>
         </a-assets>
 
-        <a-entity id="enviro" position="0 -.001 0" environment="
-preset: tron; 
-groundYScale: 100; 
-fog: 0.4; 
-dressingAmount: 50; 
-groundColor2: #008eb7; 
-groundColor: #b34093; 
-groundTexture: checkerboard;
-ground: hills;
-active: true; seed: 17; 
-skyType: gradient; 
-skyColor: #87faf4; 
-horizonColor: #b50200;
-flatShading: true; 
-dressing: apparatus;
-dressingColor: #3cf7ed; 
-dressingScale: 0.2; 
-dressingAmount: 200;
-dressingOnPlayArea: 1; 
-gridColor: #239893">
-</a-entity>
-<!-- ground collider keeps objets from falling -->
-<a-box static-body width=100 height=0.001 depth=100 visible="false"></a-box>
+        <!-- your tron environment, deduped (dressingAmount appeared twice) -->
+        <a-entity id="enviro" position="0 -0.001 0" environment="
+            preset: tron;
+            groundYScale: 100;
+            fog: 0.4;
+            groundColor2: #008eb7;
+            groundColor: #b34093;
+            groundTexture: checkerboard;
+            ground: hills;
+            seed: 17;
+            skyType: gradient;
+            skyColor: #87faf4;
+            horizonColor: #b50200;
+            flatShading: true;
+            dressing: apparatus;
+            dressingColor: #3cf7ed;
+            dressingScale: 0.2;
+            dressingAmount: 200;
+            dressingOnPlayArea: 1;
+            gridColor: #239893"></a-entity>
 
+        <!-- the track -->
         <a-curve id="track1">
             <a-curve-point position="-16 19 -33"></a-curve-point>
             <a-curve-point position="7 24 -57"></a-curve-point>
@@ -47,30 +180,25 @@ gridColor: #239893">
             <a-curve-point position="22 9 17"></a-curve-point>
             <a-curve-point position="29 6 42"></a-curve-point>
             <a-curve-point position="27 33.45 60"></a-curve-point>
-            <a-curve-point position="-33 6.0 27"></a-curve-point>
-            <a-curve-point position="-16 19 -33"></a-curve-point>
+            <a-curve-point position="-33 6 27"></a-curve-point>
         </a-curve>
-        <a-draw-curve curveref="#track1" material="shader: line; color: blue;"></a-draw-curve>
+        <a-draw-curve curveref="#track1" color="#2244ff"></a-draw-curve>
+        <a-entity clone-along-curve="curve: #track1; spacing: 0.2"></a-entity>
 
-        <a-entity clone-along-curve="curve: #track1; spacing: 0.2; scale: 1 1 1; rotation: 0 0 0;" geometry="primitive:box; height:0.1; width:0.2; depth:0.1"></a-entity>
-
-        <a-entity>
-            <a-entity id="sun" obj-model="obj: #ahead;" material="color: #ff0000; metalness: .5;" scale="5 5 5" rotation="0 0 180" position="0 20 -25" sound="src:./plume.mp3;autoplay:true; loop:true;">
-            </a-entity>
-            <a-animation direction="alternate" attribute="rotation" to="0 360 0" dur="20000" repeat="indefinite"></a-animation>
+        <!-- the head: orbiting slowly, sound attached (positional) -->
+        <a-entity animation="property: rotation; to: 0 360 0; dur: 20000; dir: alternate; easing: linear; loop: true">
+            <a-entity id="sun" obj-model="obj: #ahead" material="color: #ff0000; metalness: 0.5"
+                scale="5 5 5" rotation="0 0 180" position="0 20 -25"
+                sound="src: url(./plume.mp3); autoplay: true; loop: true; positional: true; refDistance: 8; rolloffFactor: 1.2"></a-entity>
         </a-entity>
 
-        <!-- CAMERA RIG FOR TELEPORT-CONTROLS AND SUPER-HANDS -->
-        <a-entity id="cameraRig" alongpath="curve: #track1; loop: true; dur: 120000">
-            <a-entity id="head" progressive-controls="gazeMixin: mycursor; touchMixin: mytouch; override: true; objects: .obj, .button; maxLevel: point;">
-                <a-entity teleport-controls="cameraRig: #cameraRig; teleportOrigin: #head;" shadow="cast:true" haptics="events: triggerdown; dur: 50; force: 0.5" class="left-controller"></a-entity>
-                <a-entity teleport-controls="cameraRig: #cameraRig; teleportOrigin: #head;" shadow="cast:true" haptics="events: triggerdown; dur: 50; force: 0.5" class="right-controller"></a-entity>
-            </a-entity>
+        <!-- camera rig rides the track; free look while travelling -->
+        <a-entity id="cameraRig" alongpath="curve: #track1; dur: 120000; loop: true">
+            <a-entity id="head" camera position="0 1.6 0" look-controls></a-entity>
+            <a-entity laser-controls="hand: left"></a-entity>
+            <a-entity laser-controls="hand: right"></a-entity>
         </a-entity>
-
-
     </a-scene>
-
 </body>
 
 </html>
