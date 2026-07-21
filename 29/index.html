@@ -546,8 +546,14 @@ AFRAME.registerComponent('funky-transform', {
                                playArea: 2"></a-entity>
 
         <!-- models -->
-        <a-gltf-model src="#stand" scale="300 300 300" position="0 200 -12" animation-mixer funky-transform></a-gltf-model>
-
+<!-- wrapper sits where you want the FOOT to be; it spins on Y -->
+<a-entity position="0 100 -12"
+    animation="property: rotation; to: 0 360 0; dur: 12000; easing: linear; loop: true">
+    <!-- model offset UP inside the wrapper so its foot is at the wrapper origin.
+         the y offset must equal half the model's height (in scaled units). -->
+    <a-gltf-model src="#stand" scale="300 300 300" position="0 100 0"
+        animation-mixer funky-transform></a-gltf-model>
+</a-entity>
         <a-gltf-model src="#hallway" scale="60 60 60" position="5 -1 28" animation-mixer></a-gltf-model>
 
         <!-- camera rig -->
