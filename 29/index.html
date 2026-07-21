@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="utf-8">
-    <title>Acoustic Spaces — Mushroom Cave</title>
+    <title>Spacetown!</title>
     <script src="https://aframe.io/releases/1.8.0/aframe.min.js"></script>
     <script src="https://unpkg.com/aframe-environment-component@1.5.0/dist/aframe-environment-component.min.js"></script>
     <script src="https://unpkg.com/aframe-blink-controls/dist/aframe-blink-controls.min.js"></script>
@@ -31,45 +31,155 @@
 
     <script>
         /* ============================================================
-           ACOUSTIC SPACES — psychedelic mushroom edition.
-           SKY FIX: the environment's sky dome is a fixed ~200m sphere,
-           so the whole environment entity is now scaled 8x — sky dome
-           becomes ~1600m, ground grows to match (horizon disc no
-           longer needed). Internal env params are rebalanced to
-           compensate (they all multiply by that 8).
+           SPACETOWN — psychedelic mushroom edition + instanced heads.
            ============================================================ */
-AFRAME.registerComponent('funky-transform', {
-    schema: {
-        spinZ:    { default: 3 },      /* deg/sec around Z — slow */
-        xAmp:     { default: 0.8 },   /* X scale swing, ± fraction of base */
-        yAmp:     { default: 0.8 },   /* Y scale swing, ± fraction of base */
-        xPeriod:  { default: 5 },     /* seconds per X breathe cycle */
-        yPeriod:  { default: 7 }       /* seconds per Y — different = drifting phase */
-    },
-    init: function () {
-        /* capture whatever scale the entity already has as the baseline */
-        var s = this.el.object3D.scale;
-        this.base = { x: s.x, y: s.y, z: s.z };
-        this.el.object3D.rotation.order = 'XYZ';  /* keep Z spin clean */
-    },
-    tick: function (time, dt) {
-        var d = this.data, o = this.el.object3D;
-        var sec = time / 1000;
-        /* independent sine cycles on X and Y */
-        o.scale.x = this.base.x * (1 + d.xAmp * Math.sin(sec * 2 * Math.PI / d.xPeriod));
-        o.scale.y = this.base.y * (1 + d.yAmp * Math.sin(sec * 2 * Math.PI / d.yPeriod));
-        o.scale.z = this.base.z;
-        /* continuous slow Z rotation, frame-rate independent */
-        o.rotation.z += THREE.MathUtils.degToRad(d.spinZ) * (dt / 1000);
-    }
-});
+
+        /* funky-transform kept from before (unused now, but yours) */
+        AFRAME.registerComponent('funky-transform', {
+            schema: {
+                spinZ: { default: 3 }, xAmp: { default: 0.4 }, yAmp: { default: 0.4 },
+                xPeriod: { default: 5 }, yPeriod: { default: 15 }
+            },
+            init: function () {
+                var s = this.el.object3D.scale;
+                this.base = { x: s.x, y: s.y, z: s.z };
+                this.el.object3D.rotation.order = 'XYZ';
+            },
+            tick: function (time, dt) {
+                var d = this.data, o = this.el.object3D, sec = time / 1000;
+                o.scale.x = this.base.x * (1 + d.xAmp * Math.sin(sec * 2 * Math.PI / d.xPeriod));
+                o.scale.y = this.base.y * (1 + d.yAmp * Math.sin(sec * 2 * Math.PI / d.yPeriod));
+                o.scale.z = this.base.z;
+                o.rotation.z += THREE.MathUtils.degToRad(d.spinZ) * (dt / 1000);
+            }
+        });
+
+        /* ============================================================
+           scatter-instances
+           ------------------------------------------------------------
+           Instances a GLTF (loaded via the entity's own gltf-model) N
+           times as one InstancedMesh per source mesh — so N heads cost
+           ~1 draw call each mesh, not N. Each instance gets its OWN:
+             - position (random in areaMin..areaMax)
+             - size (height ± heightVar, MEASURED not guessed)
+             - Y spin speed & direction (±spin deg/sec)
+             - scale "breathing" (amp/period/phase, all randomized)
+             - vertical bob (amp/period/phase)
+           All variation is transform-based, which is the only kind
+           instancing can express. NOTE: instancing can't play per-
+           instance skeletal animation — if head2 has a baked anim it
+           renders static here. If you need the anim, say so and I'll
+           give you a clone-based version (more draw calls).
+           ============================================================ */
+        AFRAME.registerComponent('scatter-instances', {
+            dependencies: ['gltf-model'],
+            schema: {
+                count: { default: 40 },
+                areaMin: { type: 'vec3', default: { x: -150, y: 6, z: -150 } },
+                areaMax: { type: 'vec3', default: { x: 150, y: 90, z: 150 } },
+                height: { default: 12 },        /* avg head height in WORLD units */
+                heightVar: { default: 0.5 },    /* ± fraction of height */
+                spin: { default: 40 },          /* max |Y spin| deg/sec */
+                breatheAmp: { default: 0.25 },  /* max scale swing, ± fraction */
+                bob: { default: 3 }             /* max vertical bob, world units */
+            },
+
+            init: function () {
+                this.inst = [];
+                this.dummy = new THREE.Object3D();
+                this.el.addEventListener('model-loaded', this.build.bind(this));
+            },
+
+            build: function (e) {
+                var model = e.detail.model;
+                model.updateWorldMatrix(true, true);
+
+                /* collect meshes, bake each world matrix into a geometry copy,
+                   measure combined height for normalization */
+                var src = [], box = new THREE.Box3();
+                model.traverse(function (o) {
+                    if (o.isMesh && o.geometry) {
+                        o.updateWorldMatrix(true, false);
+                        var g = o.geometry.clone();
+                        g.applyMatrix4(o.matrixWorld);
+                        src.push({ geo: g, mat: o.material });
+                        g.computeBoundingBox();
+                        box.union(g.boundingBox);
+                    }
+                });
+                if (!src.length) { console.warn('scatter-instances: no meshes in model'); return; }
+
+                var size = new THREE.Vector3(); box.getSize(size);
+                this.baseHeight = size.y || 1;               /* native baked height */
+                this.norm = this.data.height / this.baseHeight; /* -> world height */
+
+                /* remove the single original model so only instances show */
+                this.el.removeObject3D('mesh');
+
+                var N = this.data.count, d = this.data, self = this;
+                this.inst = src.map(function (s) {
+                    var im = new THREE.InstancedMesh(s.geo, s.mat, N);
+                    im.frustumCulled = false; /* instances span a big volume */
+                    self.el.object3D.add(im);
+                    return im;
+                });
+
+                /* per-instance behavior params */
+                var rand = function (a, b) { return a + Math.random() * (b - a); };
+                this.p = [];
+                for (var i = 0; i < N; i++) {
+                    this.p.push({
+                        x: rand(d.areaMin.x, d.areaMax.x),
+                        y: rand(d.areaMin.y, d.areaMax.y),
+                        z: rand(d.areaMin.z, d.areaMax.z),
+                        yaw: rand(0, Math.PI * 2),
+                        spin: THREE.MathUtils.degToRad(rand(-d.spin, d.spin)),
+                        sizeMul: this.norm * (1 + rand(-d.heightVar, d.heightVar)),
+                        brAmp: rand(0, d.breatheAmp),
+                        brPer: rand(4, 12),
+                        brPh: rand(0, Math.PI * 2),
+                        bobAmp: rand(0, d.bob),
+                        bobPer: rand(5, 14),
+                        bobPh: rand(0, Math.PI * 2)
+                    });
+                }
+                this._seeded = true;
+            },
+
+            tick: function (time, dt) {
+                if (!this._seeded) return;
+                var t = time / 1000, dm = this.dummy, i, k, p, s, bob;
+                for (i = 0; i < this.p.length; i++) {
+                    p = this.p[i];
+                    p.yaw += p.spin * (dt / 1000);
+                    s = p.sizeMul * (1 + p.brAmp * Math.sin(2 * Math.PI * t / p.brPer + p.brPh));
+                    bob = p.bobAmp * Math.sin(2 * Math.PI * t / p.bobPer + p.bobPh);
+                    dm.position.set(p.x, p.y + bob, p.z);
+                    dm.rotation.set(0, p.yaw, 0);
+                    dm.scale.setScalar(s);
+                    dm.updateMatrix();
+                    for (k = 0; k < this.inst.length; k++) this.inst[k].setMatrixAt(i, dm.matrix);
+                }
+                for (k = 0; k < this.inst.length; k++) this.inst[k].instanceMatrix.needsUpdate = true;
+            },
+
+            remove: function () {
+                var self = this;
+                this.inst.forEach(function (im) {
+                    self.el.object3D.remove(im);
+                    im.geometry.dispose();
+                });
+                this.inst = [];
+            }
+        });
+
 
         AFRAME.registerSystem('acoustics', {
             init: function () {
                 this.ctx = null;
                 this.ready = false;
                 this.zones = [];
-                this.pending = [];          // callbacks waiting for ctx
+                this.pending = [];
                 this._v = new THREE.Vector3();
                 this._q = new THREE.Quaternion();
                 this._fwd = new THREE.Vector3();
@@ -83,12 +193,10 @@ AFRAME.registerComponent('funky-transform', {
                 window.addEventListener('click', start, { once: true });
             },
 
-            /* Call once, on a user gesture (Quest/Chrome require it). */
             start: function () {
                 if (this.ctx) { this.ctx.resume(); this._hideGate(); return; }
                 var ctx = this.ctx = new (window.AudioContext || window.webkitAudioContext)();
 
-                /* safety limiter so stacked tails can't clip the output */
                 this.limiter = ctx.createDynamicsCompressor();
                 this.limiter.threshold.value = -3;
                 this.limiter.knee.value = 0;
@@ -105,7 +213,6 @@ AFRAME.registerComponent('funky-transform', {
                 this.dry.gain.value = 1.0;
                 this.dry.connect(this.master);
 
-                /* All sources send here; this bus fans out to every zone. */
                 this.reverbSend = ctx.createGain();
                 this.reverbSend.gain.value = 1.0;
 
@@ -131,7 +238,6 @@ AFRAME.registerComponent('funky-transform', {
             tick: function (time) {
                 if (!this.ready || !this.el.camera) return;
 
-                /* --- follow the head --- */
                 var cam = this.el.camera;
                 cam.getWorldPosition(this._v);
                 cam.getWorldQuaternion(this._q);
@@ -140,7 +246,7 @@ AFRAME.registerComponent('funky-transform', {
 
                 var L = this.ctx.listener, t = this.ctx.currentTime;
                 if (L.positionX) {
-                    var s = 0.02; /* smoothing — raise if zipper noise on fast turns */
+                    var s = 0.02;
                     L.positionX.setTargetAtTime(this._v.x, t, s);
                     L.positionY.setTargetAtTime(this._v.y, t, s);
                     L.positionZ.setTargetAtTime(this._v.z, t, s);
@@ -150,13 +256,12 @@ AFRAME.registerComponent('funky-transform', {
                     L.upX.setTargetAtTime(this._up.x, t, s);
                     L.upY.setTargetAtTime(this._up.y, t, s);
                     L.upZ.setTargetAtTime(this._up.z, t, s);
-                } else { /* older WebAudio fallback */
+                } else {
                     L.setPosition(this._v.x, this._v.y, this._v.z);
                     L.setOrientation(this._fwd.x, this._fwd.y, this._fwd.z,
                         this._up.x, this._up.y, this._up.z);
                 }
 
-                /* --- crossfade zones (10x/sec is plenty; gains are smoothed) --- */
                 if (time - this._lastZoneUpdate < 100) return;
                 this._lastZoneUpdate = time;
 
@@ -180,24 +285,16 @@ AFRAME.registerComponent('funky-transform', {
 
         AFRAME.registerComponent('reverb-zone', {
             schema: {
-                radius: { default: 5 },      /* full-wet inside this distance */
-                fade: { default: 3 },        /* crossfade band beyond radius (m) */
-                wet: { default: 0.6 },       /* max wet level for this space */
-                seconds: { default: 2.5 },   /* IR length (synth only) */
-                decay: { default: 2.5 },     /* higher = faster die-off (synth) */
-                tone: { default: 3000 },     /* lowpass Hz — lower = darker stone */
-                predelay: { default: 0.02 }, /* seconds before first reflection */
-                irSrc: { default: '' },      /* URL of a real IR file (overrides synth) */
-                ambient: { default: false }  /* the "everywhere else" space */
+                radius: { default: 5 }, fade: { default: 3 }, wet: { default: 0.6 },
+                seconds: { default: 2.5 }, decay: { default: 2.5 }, tone: { default: 3000 },
+                predelay: { default: 0.02 }, irSrc: { default: '' }, ambient: { default: false }
             },
-
             init: function () {
                 this.node = null;
                 this._w = 0;
                 var self = this;
                 var sys = this.el.sceneEl.systems.acoustics;
                 sys.registerZone(this);
-
                 sys.whenReady(function (ctx) {
                     self.node = ctx.createConvolver();
                     self.wetGain = ctx.createGain();
@@ -205,7 +302,6 @@ AFRAME.registerComponent('funky-transform', {
                     sys.reverbSend.connect(self.node);
                     self.node.connect(self.wetGain);
                     self.wetGain.connect(sys.master);
-
                     if (self.data.irSrc) {
                         fetch(self.data.irSrc)
                             .then(function (r) { return r.arrayBuffer(); })
@@ -219,8 +315,6 @@ AFRAME.registerComponent('funky-transform', {
                         self.node.buffer = self.synthIR(ctx);
                     }
                 });
-
-                /* ?debug=1 shows zone boundaries */
                 if (/[?&]debug/.test(location.search)) {
                     this.el.setAttribute('geometry',
                         'primitive: sphere; radius: ' + this.data.radius);
@@ -228,7 +322,6 @@ AFRAME.registerComponent('funky-transform', {
                         'wireframe: true; color: #4fd; opacity: 0.35; transparent: true');
                 }
             },
-
             synthIR: function (ctx) {
                 var rate = ctx.sampleRate;
                 var pre = Math.floor(rate * this.data.predelay);
@@ -245,7 +338,6 @@ AFRAME.registerComponent('funky-transform', {
                 }
                 return buf;
             },
-
             weightAt: function (worldPos) {
                 var d = this.el.object3D.getWorldPosition(this._c || (this._c = new THREE.Vector3()))
                     .distanceTo(worldPos);
@@ -258,28 +350,20 @@ AFRAME.registerComponent('funky-transform', {
 
         AFRAME.registerComponent('spatial-source', {
             schema: {
-                src: { default: '' },          /* '#assetId' or a URL */
-                loop: { default: true },
-                volume: { default: 1.0 },
-                send: { default: 0.6 },        /* level into the reverb bus */
-                refDistance: { default: 1.5 },
-                rolloffFactor: { default: 1.5 },
-                maxDistance: { default: 100 },
-                bed: { default: false }        /* true = non-positional ambience */
+                src: { default: '' }, loop: { default: true }, volume: { default: 1.0 },
+                send: { default: 0.6 }, refDistance: { default: 1.5 },
+                rolloffFactor: { default: 1.5 }, maxDistance: { default: 100 }, bed: { default: false }
             },
-
             init: function () {
                 var self = this;
                 this._pos = new THREE.Vector3();
                 var sys = this.system = this.el.sceneEl.systems.acoustics;
-
                 var url = this.data.src;
                 if (url && url[0] === '#') {
                     var elAsset = document.querySelector(url);
                     url = elAsset ? elAsset.getAttribute('src') : '';
                 }
                 if (!url) { console.warn('spatial-source: no src on', this.el); return; }
-
                 sys.whenReady(function (ctx) {
                     fetch(url)
                         .then(function (r) {
@@ -293,22 +377,18 @@ AFRAME.registerComponent('funky-transform', {
                         });
                 });
             },
-
             buildGraph: function (ctx, buffer) {
                 var d = this.data;
                 this.srcNode = ctx.createBufferSource();
                 this.srcNode.buffer = buffer;
                 this.srcNode.loop = d.loop;
-
                 this.gain = ctx.createGain();
                 this.gain.gain.value = d.volume;
-
                 this.sendGain = ctx.createGain();
                 this.sendGain.gain.value = d.send;
-
                 var out;
                 if (d.bed) {
-                    out = this.gain; /* plain stereo bed, no panning */
+                    out = this.gain;
                 } else {
                     this.panner = ctx.createPanner();
                     this.panner.panningModel = 'HRTF';
@@ -319,14 +399,12 @@ AFRAME.registerComponent('funky-transform', {
                     this.gain.connect(this.panner);
                     out = this.panner;
                 }
-
                 this.srcNode.connect(this.gain);
                 out.connect(this.system.dry);
                 out.connect(this.sendGain);
                 this.sendGain.connect(this.system.reverbSend);
                 this.srcNode.start();
             },
-
             tick: function () {
                 if (!this.panner) return;
                 this.el.object3D.getWorldPosition(this._pos);
@@ -339,22 +417,16 @@ AFRAME.registerComponent('funky-transform', {
                     this.panner.setPosition(this._pos.x, this._pos.y, this._pos.z);
                 }
             },
-
             remove: function () {
                 if (this.srcNode) { try { this.srcNode.stop(); } catch (e) { } }
             }
         });
 
 
-        /* Oscillator through the same spatial + reverb chain. */
         AFRAME.registerComponent('tone-source', {
             schema: {
-                freq: { default: 110 },
-                type: { default: 'sine' },   /* sine | triangle | sawtooth | square */
-                volume: { default: 0.12 },
-                send: { default: 0.9 },
-                refDistance: { default: 1.5 },
-                rolloffFactor: { default: 2 }
+                freq: { default: 110 }, type: { default: 'sine' }, volume: { default: 0.12 },
+                send: { default: 0.9 }, refDistance: { default: 1.5 }, rolloffFactor: { default: 2 }
             },
             init: function () {
                 var self = this;
@@ -364,19 +436,15 @@ AFRAME.registerComponent('funky-transform', {
                     self.osc = ctx.createOscillator();
                     self.osc.type = self.data.type;
                     self.osc.frequency.value = self.data.freq;
-
                     self.gain = ctx.createGain();
                     self.gain.gain.value = self.data.volume;
-
                     self.panner = ctx.createPanner();
                     self.panner.panningModel = 'HRTF';
                     self.panner.distanceModel = 'inverse';
                     self.panner.refDistance = self.data.refDistance;
                     self.panner.rolloffFactor = self.data.rolloffFactor;
-
                     self.sendGain = ctx.createGain();
                     self.sendGain.gain.value = self.data.send;
-
                     self.osc.connect(self.gain);
                     self.gain.connect(self.panner);
                     self.panner.connect(sys.dry);
@@ -403,20 +471,14 @@ AFRAME.registerComponent('funky-transform', {
         });
 
 
-        /* slow hue drift for lights — the psychedelic pulse. */
         AFRAME.registerComponent('hue-cycle', {
             schema: {
-                speed: { default: 0.015 },     /* hue cycles per second */
-                offset: { default: 0 },        /* stagger multiple lights */
-                saturation: { default: 0.85 },
-                lightness: { default: 0.65 }
+                speed: { default: 0.015 }, offset: { default: 0 },
+                saturation: { default: 0.85 }, lightness: { default: 0.65 }
             },
-            init: function () {
-                this._c = new THREE.Color();
-                this._last = 0;
-            },
+            init: function () { this._c = new THREE.Color(); this._last = 0; },
             tick: function (time) {
-                if (time - this._last < 150) return;  /* ~7 updates/sec */
+                if (time - this._last < 150) return;
                 this._last = time;
                 var h = (time * this.data.speed / 1000 + this.data.offset) % 1;
                 this._c.setHSL(h, this.data.saturation, this.data.lightness);
@@ -425,7 +487,6 @@ AFRAME.registerComponent('funky-transform', {
         });
 
 
-        /* --- visual components --- */
         AFRAME.registerComponent('random-material', {
             init: function () {
                 this.el.setAttribute('material', {
@@ -437,9 +498,7 @@ AFRAME.registerComponent('funky-transform', {
             getRandomColor: function () {
                 var letters = '0123456789ABCDEF'.split('');
                 var color = '#';
-                for (var i = 0; i < 6; i++) {
-                    color += letters[Math.floor(Math.random() * 16)];
-                }
+                for (var i = 0; i < 6; i++) color += letters[Math.floor(Math.random() * 16)];
                 return color;
             }
         });
@@ -462,17 +521,13 @@ AFRAME.registerComponent('funky-transform', {
 </head>
 
 <body>
-    <!-- Quest / Chrome won't start audio without a gesture -->
     <div id="audio-gate">tap anywhere to begin<br><br>&#127911; headphones or headset recommended</div>
 
     <a-scene acoustics>
 
         <a-assets>
-<a-mixin id="teleport"
-    blink-controls="cameraRig: #cameraRig; teleportOrigin: #camera;
-                    snapTurn: false;
-                    collisionEntities: #floor;
-                    maxLength: 300"></a-mixin>ss
+            <a-mixin id="teleport"
+                blink-controls="cameraRig: #cameraRig; teleportOrigin: #camera; snapTurn: false; collisionEntities: #floor; maxLength: 300"></a-mixin>
             <a-mixin id="light" geometry="primitive: sphere; radius: 5" material="color: #FFF; shader: flat"
                 light="color: #DDDDFF; distance: 500; intensity: 1.2; type: point"></a-mixin>
             <a-mixin id="torusKnot" random-torus-knot random-material
@@ -480,43 +535,28 @@ AFRAME.registerComponent('funky-transform', {
 
             <audio id="atmos" src="assets/sound/true1.wav" preload="auto"></audio>
 
-            <a-asset-item id="stand" src="assets/models/Stand_out/Stand.gltf"></a-asset-item>
+            <a-asset-item id="stand" src="assets/models/head2/scene.gltf"></a-asset-item>
             <a-asset-item id="hallway" src="assets/models/cave.glb"></a-asset-item>
         </a-assets>
-<a-plane id="floor" rotation="-90 0 0" width="4000" height="4000"
-    position="0 0 0" visible="false"></a-plane>
-        <!-- ============ ACOUSTIC SPACES ============ -->
 
-        <!-- everywhere else: vast open space — long predelay, distant slapback feel -->
+        <a-plane id="floor" rotation="-90 0 0" width="4000" height="4000" position="0 0 0" visible="false"></a-plane>
+
+        <!-- ============ ACOUSTIC SPACES ============ -->
         <a-entity
             reverb-zone="ambient: true; wet: 0.22; seconds: 2.6; decay: 3; tone: 4000; predelay: 0.07"></a-entity>
-
-        <!-- cave interior: long dark stone. Cave is at -5 0 28, scale 40 —
-             check alignment with ?debug=1 and grow radius if needed -->
         <a-entity position="-5 8 28"
             reverb-zone="radius: 40; fade: 16; wet: 0.9; seconds: 6.5; decay: 2; tone: 2000; predelay: 0.06"></a-entity>
-
-        <!-- the stand / shrine: tighter, resonant -->
         <a-entity position="0 6 -12"
             reverb-zone="radius: 12; fade: 6; wet: 0.7; seconds: 2.4; decay: 1.8; tone: 3600; predelay: 0.025"></a-entity>
 
         <!-- ============ SOUND SOURCES ============ -->
-
         <a-entity spatial-source="src: #atmos; bed: true; volume: 0.4; send: 0.25"></a-entity>
-
-        <!-- test drone deep in the cave. Delete or retune for the show. -->
         <a-entity position="-5 6 36"
             tone-source="freq: 82.4; type: triangle; volume: 0.1; send: 0.9; refDistance: 6"></a-entity>
 
-        <!-- NOTE: the ghost spatial-source is disabled — its audio asset
-             (#grave) was removed from a-assets. Re-enable by pointing src
-             at one of your files, e.g. src: assets/sound/yourfile.wav
-        <a-entity spatial-source="src: assets/sound/YOURFILE.wav; volume: 0.9; send: 0.8; refDistance: 6; rolloffFactor: 1.1; maxDistance: 500"></a-entity>
-        -->
-
         <a-entity entity-generator="mixin: torusKnot; num: 15"></a-entity>
 
-        <!-- orbiting lights, hue-cycling out of phase with each other -->
+        <!-- orbiting hue-cycling lights -->
         <a-entity animation="property: rotation; to: 0 0 360; dur: 16000; easing: linear; loop: true">
             <a-entity mixin="light" hue-cycle="offset: 0" position="120 0 0"></a-entity>
         </a-entity>
@@ -524,15 +564,7 @@ AFRAME.registerComponent('funky-transform', {
             <a-entity mixin="light" hue-cycle="offset: 0.5" position="0 0 160"></a-entity>
         </a-entity>
 
-        <!-- ============ PSYCHEDELIC MUSHROOM ENVIRONMENT — 8x ============
-             scale="8 8 8" grows the fixed 200m sky dome to ~1600m and the
-             ground with it. All internal sizes multiply by 8 too, so:
-             groundYScale 3  (x8 = ~24m hills, same as before)
-             dressingScale 3 (x8 = ~24m mushrooms, same as before)
-             fog 0           (env fog distances don't scale — would white
-                              out the far world; add scene fog manually
-                              if you want haze back)
-             The old 1500m ground disc is gone — no longer needed. -->
+        <!-- ============ PSYCHEDELIC MUSHROOM ENVIRONMENT — 8x ============ -->
         <a-entity scale="8 8 8" environment="preset: forest; fog: 0;
                                ground: hills; groundYScale: 3;
                                groundColor: #5b1a72; groundColor2: #ff5ec4;
@@ -545,15 +577,24 @@ AFRAME.registerComponent('funky-transform', {
                                dressingOnPlayArea: 0.1;
                                playArea: 2"></a-entity>
 
-        <!-- models -->
-<!-- wrapper sits where you want the FOOT to be; it spins on Y -->
-<a-entity position="0 100 -12"
-    animation="property: rotation; to: 0 360 0; dur: 12000; easing: linear; loop: true">
-    <!-- model offset UP inside the wrapper so its foot is at the wrapper origin.
-         the y offset must equal half the model's height (in scaled units). -->
-    <a-gltf-model src="#stand" scale="300 300 300" position="500 300 200"
-        animation-mixer funky-transform></a-gltf-model>
-</a-entity>
+        <!-- ============ SCATTERED INSTANCED HEADS ============
+             40 copies of #stand, each with its own spin/breathe/bob/size.
+             Tune:
+               count      — how many (push higher; it's cheap)
+               height     — avg head height in world units (MEASURED sizing)
+               heightVar  — size spread (0.5 = ±50%)
+               spin       — max |Y spin| deg/sec (varies per head, ± direction)
+               breatheAmp — max scale pulsing
+               bob        — max vertical float, world units
+               areaMin/areaMax — the volume they scatter through
+             The gltf-model attr does the loading; scatter-instances
+             turns the loaded mesh into instances. -->
+        <a-entity gltf-model="#stand"
+            scatter-instances="count: 80; height: 24; heightVar: 0.5; spin: 40;
+                               breatheAmp: 0.5; bob: 6;
+                               areaMin: -150 6 -150; areaMax: 600 90 600" funky-transform></a-entity>
+
+        <!-- cave -->
         <a-gltf-model src="#hallway" scale="60 60 60" position="5 -1 28" animation-mixer></a-gltf-model>
 
         <!-- camera rig -->
