@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="utf-8">
-    <title>Acoustic Spaces — Mushroom Ruins</title>
+    <title>Acoustic Spaces — Mushroom Cave</title>
     <script src="https://aframe.io/releases/1.8.0/aframe.min.js"></script>
     <script src="https://unpkg.com/aframe-environment-component@1.5.0/dist/aframe-environment-component.min.js"></script>
     <script src="https://unpkg.com/aframe-blink-controls/dist/aframe-blink-controls.min.js"></script>
@@ -32,10 +32,11 @@
     <script>
         /* ============================================================
            ACOUSTIC SPACES — psychedelic mushroom edition.
-           Same audio engine; environment swapped to giant mushrooms,
-           magenta/violet palette, and slowly hue-cycling lights.
-           A huge flat disc under the environment ground fixes the
-           "tiny ground" problem (env ground is a fixed 200m plane).
+           SKY FIX: the environment's sky dome is a fixed ~200m sphere,
+           so the whole environment entity is now scaled 8x — sky dome
+           becomes ~1600m, ground grows to match (horizon disc no
+           longer needed). Internal env params are rebalanced to
+           compensate (they all multiply by that 8).
            ============================================================ */
 
         AFRAME.registerSystem('acoustics', {
@@ -377,8 +378,7 @@
         });
 
 
-        /* slow hue drift for lights — the psychedelic pulse.
-           throttled; cheap enough for Quest. */
+        /* slow hue drift for lights — the psychedelic pulse. */
         AFRAME.registerComponent('hue-cycle', {
             schema: {
                 speed: { default: 0.015 },     /* hue cycles per second */
@@ -451,7 +451,7 @@
 
             <audio id="atmos" src="assets/sound/fritreat.wav" preload="auto"></audio>
 
-            <a-asset-item id="stand" src="assets/models/Stand_out/Stand.gltf"></a-asset-item>
+            <a-asset-item id="stand" src="assets/models/head.glb"></a-asset-item>
             <a-asset-item id="hallway" src="assets/models/cave.glb"></a-asset-item>
         </a-assets>
 
@@ -461,10 +461,9 @@
         <a-entity
             reverb-zone="ambient: true; wet: 0.22; seconds: 2.6; decay: 3; tone: 4000; predelay: 0.07"></a-entity>
 
-        <!-- ruins interior: cathedral-sized dark stone.
-             NOTE: your ruins are now scale 80 — check with ?debug=1 that this
-             sphere actually covers the interior, and grow radius if not -->
-        <a-entity position="0 8 28"
+        <!-- cave interior: long dark stone. Cave is at -5 0 28, scale 40 —
+             check alignment with ?debug=1 and grow radius if needed -->
+        <a-entity position="-5 8 28"
             reverb-zone="radius: 40; fade: 16; wet: 0.9; seconds: 6.5; decay: 2; tone: 2000; predelay: 0.06"></a-entity>
 
         <!-- the stand / shrine: tighter, resonant -->
@@ -475,13 +474,19 @@
 
         <a-entity spatial-source="src: #atmos; bed: true; volume: 0.4; send: 0.25"></a-entity>
 
-        <!-- test drone deep in the ruins. Delete or retune for the show. -->
-        <a-entity position="0 6 36"
+        <!-- test drone deep in the cave. Delete or retune for the show. -->
+        <a-entity position="-5 6 36"
             tone-source="freq: 82.4; type: triangle; volume: 0.1; send: 0.9; refDistance: 6"></a-entity>
+
+        <!-- NOTE: the ghost spatial-source is disabled — its audio asset
+             (#grave) was removed from a-assets. Re-enable by pointing src
+             at one of your files, e.g. src: assets/sound/yourfile.wav
+        <a-entity spatial-source="src: assets/sound/YOURFILE.wav; volume: 0.9; send: 0.8; refDistance: 6; rolloffFactor: 1.1; maxDistance: 500"></a-entity>
+        -->
 
         <a-entity entity-generator="mixin: torusKnot; num: 15"></a-entity>
 
-        <!-- orbiting lights, now hue-cycling out of phase with each other -->
+        <!-- orbiting lights, hue-cycling out of phase with each other -->
         <a-entity animation="property: rotation; to: 0 0 360; dur: 16000; easing: linear; loop: true">
             <a-entity mixin="light" hue-cycle="offset: 0" position="120 0 0"></a-entity>
         </a-entity>
@@ -489,33 +494,31 @@
             <a-entity mixin="light" hue-cycle="offset: 0.5" position="0 0 160"></a-entity>
         </a-entity>
 
-        <!-- ============ PSYCHEDELIC MUSHROOM ENVIRONMENT ============
-             giant mushrooms, magenta/violet palette, flat-shaded.
-             groundYScale back to sane hills (300 was making
-             vertical spike-mountains that ate the walkable ground). -->
-        <a-entity environment="preset: forest; fog: 0.25;
-                               ground: hills; groundYScale: 25;
+        <!-- ============ PSYCHEDELIC MUSHROOM ENVIRONMENT — 8x ============
+             scale="8 8 8" grows the fixed 200m sky dome to ~1600m and the
+             ground with it. All internal sizes multiply by 8 too, so:
+             groundYScale 3  (x8 = ~24m hills, same as before)
+             dressingScale 3 (x8 = ~24m mushrooms, same as before)
+             fog 0           (env fog distances don't scale — would white
+                              out the far world; add scene fog manually
+                              if you want haze back)
+             The old 1500m ground disc is gone — no longer needed. -->
+        <a-entity scale="8 8 8" environment="preset: forest; fog: 0;
+                               ground: hills; groundYScale: 3;
                                groundColor: #5b1a72; groundColor2: #ff5ec4;
                                groundTexture: walkernoise;
                                skyType: gradient; skyColor: #ff9de2; horizonColor: #3c0a5e;
                                flatShading: true;
-                               dressing: mushrooms; dressingAmount: 80;
-                               dressingScale: 25; dressingColor: #b03fff;
-                               dressingVariance: 150 60 150;
-                               playArea: 4"></a-entity>
-
-        <!-- the ground fix: env ground is a fixed 200m plane — this huge
-             disc underneath continues it to the horizon in a matching color -->
-        <a-circle rotation="-90 0 0" radius="1500" position="0 -0.6 0"
-            material="color: #4a1560; shader: flat"></a-circle>
+                               dressing: mushrooms; dressingAmount: 100;
+                               dressingScale: 4; dressingColor: #b03fff;
+                               dressingVariance: 18 8 18;
+                               dressingOnPlayArea: 0.1;
+                               playArea: 2"></a-entity>
 
         <!-- models -->
-        <a-gltf-model src="#stand" scale="8 8 8" position="0 0 -12" animation-mixer>
-            <a-entity
-                spatial-source="src: #grave; volume: 0.9; send: 0.8; refDistance: 6; rolloffFactor: 1.1; maxDistance: 500"></a-entity>
-        </a-gltf-model>
+        <a-gltf-model src="#stand" scale="30 30 30" position="0 0 -12" animation-mixer></a-gltf-model>
 
-        <a-gltf-model src="#hallway" scale="40 40 40" position="-5 0 28" animation-mixer></a-gltf-model>
+        <a-gltf-model src="#hallway" scale="60 60 60" position="5 0 28" animation-mixer></a-gltf-model>
 
         <!-- camera rig -->
         <a-entity id="cameraRig" position="0 0.1 0">
