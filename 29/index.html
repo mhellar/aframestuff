@@ -31,10 +31,10 @@
 
     <script>
         /* ============================================================
-           SPACETOWN — psychedelic mushroom edition + instanced heads.
+           SPACETOWN — psychedelic mushroom edition + FLOCKING heads.
            ============================================================ */
 
-        /* funky-transform kept from before (unused now, but yours) */
+        /* funky-transform kept for reuse elsewhere — NOT on the flock */
         AFRAME.registerComponent('funky-transform', {
             schema: {
                 spinZ: { default: 3 }, xAmp: { default: 0.4 }, yAmp: { default: 0.4 },
@@ -55,38 +55,43 @@
         });
 
         /* ============================================================
-           scatter-instances
+           scatter-instances  (now a BOIDS FLOCK)
            ------------------------------------------------------------
-           Instances a GLTF (loaded via the entity's own gltf-model) N
-           times as one InstancedMesh per source mesh — so N heads cost
-           ~1 draw call each mesh, not N. Each instance gets its OWN:
-             - position (random in areaMin..areaMax)
-             - size (height ± heightVar, MEASURED not guessed)
-             - Y spin speed & direction (±spin deg/sec)
-             - scale "breathing" (amp/period/phase, all randomized)
-             - vertical bob (amp/period/phase)
-           All variation is transform-based, which is the only kind
-           instancing can express. NOTE: instancing can't play per-
-           instance skeletal animation — if head2 has a baked anim it
-           renders static here. If you need the anim, say so and I'll
-           give you a clone-based version (more draw calls).
+           Instances a GLTF N times as one InstancedMesh per source
+           mesh (~1 draw call each), then runs a classic Reynolds boids
+           sim so the heads flock: separation + alignment + cohesion,
+           softly bounded to a box, each head turned to face its own
+           heading. Still transform-only per instance, so instancing
+           holds. (No per-instance skeletal anim — flock is static-mesh.)
+
+           Tunables below in schema; the three weights are the character:
+             separation — personal space (raise to spread out)
+             alignment  — match neighbours' heading (raise = tighter streams)
+             cohesion   — pull toward the group centre (raise = clumpier)
            ============================================================ */
         AFRAME.registerComponent('scatter-instances', {
             dependencies: ['gltf-model'],
             schema: {
-                count: { default: 40 },
-                areaMin: { type: 'vec3', default: { x: -150, y: 6, z: -150 } },
-                areaMax: { type: 'vec3', default: { x: 150, y: 90, z: 150 } },
-                height: { default: 12 },        /* avg head height in WORLD units */
-                heightVar: { default: 0.5 },    /* ± fraction of height */
-                spin: { default: 40 },          /* max |Y spin| deg/sec */
-                breatheAmp: { default: 0.25 },  /* max scale swing, ± fraction */
-                bob: { default: 3 }             /* max vertical bob, world units */
+                count: { default: 80 },
+                /* bounding box the flock roams (soft-steered back inside) */
+                boundsMin: { type: 'vec3', default: { x: -300, y: 20, z: -300 } },
+                boundsMax: { type: 'vec3', default: { x: 300, y: 140, z: 300 } },
+                height: { default: 24 },        /* avg head height, world units (measured) */
+                heightVar: { default: 0.4 },
+                speed: { default: 22 },         /* cruise speed, units/sec */
+                maxForce: { default: 28 },      /* steering accel cap, units/sec^2 */
+                neighborDist: { default: 90 },  /* perception radius */
+                sepDist: { default: 45 },       /* below this, push apart */
+                separation: { default: 1.6 },
+                alignment: { default: 1.0 },
+                cohesion: { default: 0.9 },
+                breatheAmp: { default: 0.15 }   /* subtle per-head scale pulse */
             },
 
             init: function () {
                 this.inst = [];
                 this.dummy = new THREE.Object3D();
+                this._up = new THREE.Vector3(0, 1, 0);
                 this.el.addEventListener('model-loaded', this.build.bind(this));
             },
 
@@ -94,8 +99,6 @@
                 var model = e.detail.model;
                 model.updateWorldMatrix(true, true);
 
-                /* collect meshes, bake each world matrix into a geometry copy,
-                   measure combined height for normalization */
                 var src = [], box = new THREE.Box3();
                 model.traverse(function (o) {
                     if (o.isMesh && o.geometry) {
@@ -110,52 +113,111 @@
                 if (!src.length) { console.warn('scatter-instances: no meshes in model'); return; }
 
                 var size = new THREE.Vector3(); box.getSize(size);
-                this.baseHeight = size.y || 1;               /* native baked height */
-                this.norm = this.data.height / this.baseHeight; /* -> world height */
+                this.norm = this.data.height / (size.y || 1);
 
-                /* remove the single original model so only instances show */
                 this.el.removeObject3D('mesh');
 
                 var N = this.data.count, d = this.data, self = this;
                 this.inst = src.map(function (s) {
                     var im = new THREE.InstancedMesh(s.geo, s.mat, N);
-                    im.frustumCulled = false; /* instances span a big volume */
+                    im.frustumCulled = false;
                     self.el.object3D.add(im);
                     return im;
                 });
 
-                /* per-instance behavior params */
+                /* boid state: position, velocity, per-head size + breathe */
                 var rand = function (a, b) { return a + Math.random() * (b - a); };
-                this.p = [];
+                var bmin = d.boundsMin, bmax = d.boundsMax;
+                this.boids = [];
                 for (var i = 0; i < N; i++) {
-                    this.p.push({
-                        x: rand(d.areaMin.x, d.areaMax.x),
-                        y: rand(d.areaMin.y, d.areaMax.y),
-                        z: rand(d.areaMin.z, d.areaMax.z),
-                        yaw: rand(0, Math.PI * 2),
-                        spin: THREE.MathUtils.degToRad(rand(-d.spin, d.spin)),
+                    var vel = new THREE.Vector3(rand(-1, 1), rand(-0.3, 0.3), rand(-1, 1));
+                    if (vel.lengthSq() < 1e-4) vel.set(1, 0, 0);
+                    vel.normalize().multiplyScalar(d.speed);
+                    this.boids.push({
+                        pos: new THREE.Vector3(rand(bmin.x, bmax.x), rand(bmin.y, bmax.y), rand(bmin.z, bmax.z)),
+                        vel: vel,
                         sizeMul: this.norm * (1 + rand(-d.heightVar, d.heightVar)),
                         brAmp: rand(0, d.breatheAmp),
-                        brPer: rand(4, 12),
-                        brPh: rand(0, Math.PI * 2),
-                        bobAmp: rand(0, d.bob),
-                        bobPer: rand(5, 14),
-                        bobPh: rand(0, Math.PI * 2)
+                        brPer: rand(4, 10),
+                        brPh: rand(0, Math.PI * 2)
                     });
                 }
+
+                /* scratch vectors (avoid per-frame allocation) */
+                this._sep = new THREE.Vector3();
+                this._ali = new THREE.Vector3();
+                this._coh = new THREE.Vector3();
+                this._steer = new THREE.Vector3();
+                this._diff = new THREE.Vector3();
                 this._seeded = true;
             },
 
             tick: function (time, dt) {
                 if (!this._seeded) return;
-                var t = time / 1000, dm = this.dummy, i, k, p, s, bob;
-                for (i = 0; i < this.p.length; i++) {
-                    p = this.p[i];
-                    p.yaw += p.spin * (dt / 1000);
-                    s = p.sizeMul * (1 + p.brAmp * Math.sin(2 * Math.PI * t / p.brPer + p.brPh));
-                    bob = p.bobAmp * Math.sin(2 * Math.PI * t / p.bobPer + p.bobPh);
-                    dm.position.set(p.x, p.y + bob, p.z);
-                    dm.rotation.set(0, p.yaw, 0);
+                var d = this.data, b = this.boids, N = b.length;
+                var step = Math.min(dt / 1000, 0.05); /* clamp to avoid blowups on hitches */
+                var nd2 = d.neighborDist * d.neighborDist;
+                var sd2 = d.sepDist * d.sepDist;
+                var i, j, bi, bj;
+
+                for (i = 0; i < N; i++) {
+                    bi = b[i];
+                    this._sep.set(0, 0, 0);
+                    this._ali.set(0, 0, 0);
+                    this._coh.set(0, 0, 0);
+                    var sepN = 0, aliN = 0, cohN = 0;
+
+                    for (j = 0; j < N; j++) {
+                        if (j === i) continue;
+                        bj = b[j];
+                        this._diff.subVectors(bi.pos, bj.pos);
+                        var dist2 = this._diff.lengthSq();
+                        if (dist2 > nd2 || dist2 === 0) continue;
+                        /* alignment + cohesion from all neighbours */
+                        this._ali.add(bj.vel); aliN++;
+                        this._coh.add(bj.pos); cohN++;
+                        /* separation only from close ones, weighted by 1/dist */
+                        if (dist2 < sd2) {
+                            this._diff.multiplyScalar(1 / Math.sqrt(dist2));
+                            this._sep.add(this._diff); sepN++;
+                        }
+                    }
+
+                    this._steer.set(0, 0, 0);
+                    if (sepN) {
+                        this._sep.divideScalar(sepN).normalize().multiplyScalar(d.speed).sub(bi.vel);
+                        this._limit(this._sep, d.maxForce);
+                        this._steer.addScaledVector(this._sep, d.separation);
+                    }
+                    if (aliN) {
+                        this._ali.divideScalar(aliN).normalize().multiplyScalar(d.speed).sub(bi.vel);
+                        this._limit(this._ali, d.maxForce);
+                        this._steer.addScaledVector(this._ali, d.alignment);
+                    }
+                    if (cohN) {
+                        this._coh.divideScalar(cohN).sub(bi.pos).normalize().multiplyScalar(d.speed).sub(bi.vel);
+                        this._limit(this._coh, d.maxForce);
+                        this._steer.addScaledVector(this._coh, d.cohesion);
+                    }
+
+                    /* soft turn-back at bounds */
+                    this._steer.add(this._bounds(bi.pos, d));
+
+                    bi.vel.addScaledVector(this._steer, step);
+                    /* keep speed near cruise */
+                    var sp = bi.vel.length();
+                    if (sp > 0) bi.vel.multiplyScalar(d.speed / sp);
+                    bi.pos.addScaledVector(bi.vel, step);
+                }
+
+                /* write matrices: face heading, apply per-head breathe */
+                var t = time / 1000, dm = this.dummy, k;
+                for (i = 0; i < N; i++) {
+                    bi = b[i];
+                    var s = bi.sizeMul * (1 + bi.brAmp * Math.sin(2 * Math.PI * t / bi.brPer + bi.brPh));
+                    dm.position.copy(bi.pos);
+                    /* orient so the head looks where it's going */
+                    dm.lookAt(bi.pos.clone().add(bi.vel));
                     dm.scale.setScalar(s);
                     dm.updateMatrix();
                     for (k = 0; k < this.inst.length; k++) this.inst[k].setMatrixAt(i, dm.matrix);
@@ -163,12 +225,28 @@
                 for (k = 0; k < this.inst.length; k++) this.inst[k].instanceMatrix.needsUpdate = true;
             },
 
+            _limit: function (v, max) {
+                if (v.lengthSq() > max * max) v.setLength(max);
+                return v;
+            },
+
+            /* returns a steering vector nudging the boid back inside the box */
+            _bounds: function (p, d) {
+                var push = 60, m = 40; /* strength, margin */
+                var f = this._steer._b || (this._steer._b = new THREE.Vector3());
+                f.set(0, 0, 0);
+                if (p.x < d.boundsMin.x + m) f.x += push;
+                if (p.x > d.boundsMax.x - m) f.x -= push;
+                if (p.y < d.boundsMin.y + m) f.y += push;
+                if (p.y > d.boundsMax.y - m) f.y -= push;
+                if (p.z < d.boundsMin.z + m) f.z += push;
+                if (p.z > d.boundsMax.z - m) f.z -= push;
+                return f;
+            },
+
             remove: function () {
                 var self = this;
-                this.inst.forEach(function (im) {
-                    self.el.object3D.remove(im);
-                    im.geometry.dispose();
-                });
+                this.inst.forEach(function (im) { self.el.object3D.remove(im); im.geometry.dispose(); });
                 this.inst = [];
             }
         });
@@ -564,35 +642,35 @@
             <a-entity mixin="light" hue-cycle="offset: 0.5" position="0 0 160"></a-entity>
         </a-entity>
 
-        <!-- ============ PSYCHEDELIC MUSHROOM ENVIRONMENT — 8x ============ -->
+        <!-- ============ PSYCHEDELIC MUSHROOM ENVIRONMENT — 8x ============
+             taller + nuclear orange:
+               dressingScale 4 -> 7   (x8 = ~56m mushrooms)
+               dressingVariance y 8 -> 30  (big height spread = towering stalks)
+               dressingColor -> #ff6a00 nuclear orange
+               skyColor/horizon warmed so it reads radioactive, not pink -->
         <a-entity scale="8 8 8" environment="preset: forest; fog: 0;
                                ground: hills; groundYScale: 3;
-                               groundColor: #5b1a72; groundColor2: #ff5ec4;
+                               groundColor: #3a1550; groundColor2: #ff8a3d;
                                groundTexture: walkernoise;
-                               skyType: gradient; skyColor: #ff9de2; horizonColor: #3c0a5e;
+                               skyType: gradient; skyColor: #ffd27f; horizonColor: #5e1a00;
                                flatShading: true;
-                               dressing: mushrooms; dressingAmount: 100;
-                               dressingScale: 4; dressingColor: #b03fff;
-                               dressingVariance: 18 8 18;
+                               dressing: mushrooms; dressingAmount: 40;
+                               dressingScale: 7; dressingColor: #ff6a00;
+                               dressingVariance: 18 30 18;
                                dressingOnPlayArea: 0.1;
                                playArea: 2"></a-entity>
 
-        <!-- ============ SCATTERED INSTANCED HEADS ============
-             40 copies of #stand, each with its own spin/breathe/bob/size.
-             Tune:
-               count      — how many (push higher; it's cheap)
-               height     — avg head height in world units (MEASURED sizing)
-               heightVar  — size spread (0.5 = ±50%)
-               spin       — max |Y spin| deg/sec (varies per head, ± direction)
-               breatheAmp — max scale pulsing
-               bob        — max vertical float, world units
-               areaMin/areaMax — the volume they scatter through
-             The gltf-model attr does the loading; scatter-instances
-             turns the loaded mesh into instances. -->
+        <!-- ============ FLOCKING HEADS ============
+             boids sim over instanced heads. Character lives in the three
+             weights (separation / alignment / cohesion) plus speed and
+             the perception radii (neighborDist / sepDist). boundsMin/Max
+             is the box they roam. -->
         <a-entity gltf-model="#stand"
-            scatter-instances="count: 80; height: 24; heightVar: 0.5; spin: 40;
-                               breatheAmp: 0.5; bob: 6;
-                               areaMin: -150 6 -150; areaMax: 600 90 600" funky-transform></a-entity>
+            scatter-instances="count: 80; height: 24; heightVar: 0.4;
+                               speed: 22; maxForce: 28;
+                               neighborDist: 90; sepDist: 45;
+                               separation: 1.6; alignment: 1.0; cohesion: 0.9;
+                               boundsMin: -300 20 -300; boundsMax: 300 140 300"></a-entity>
 
         <!-- cave -->
         <a-gltf-model src="#hallway" scale="60 60 60" position="5 -1 28" animation-mixer></a-gltf-model>
