@@ -533,7 +533,7 @@
             <a-mixin id="torusKnot" random-torus-knot random-material
                 random-position="min: -160 30 -160; max: 160 180 160"></a-mixin>
 
-            <audio id="atmos" src="assets/sound/true1.wav" preload="auto"></audio>
+            <audio id="atmos" src="assets/sound/true2.wav" preload="auto"></audio>
 
             <a-asset-item id="stand" src="assets/models/head2/scene.gltf"></a-asset-item>
             <a-asset-item id="hallway" src="assets/models/cave.glb"></a-asset-item>
@@ -550,7 +550,7 @@
             reverb-zone="radius: 12; fade: 6; wet: 0.7; seconds: 2.4; decay: 1.8; tone: 3600; predelay: 0.025"></a-entity>
 
         <!-- ============ SOUND SOURCES ============ -->
-        <a-entity spatial-source="src: #atmos; bed: true; volume: 0.4; send: 0.25"></a-entity>
+        <a-entity spatial-source="src: #atmos; bed: true; volume: 0.3; send: 0.25"></a-entity>
         <a-entity position="-5 6 36"
             tone-source="freq: 82.4; type: triangle; volume: 0.1; send: 0.9; refDistance: 6"></a-entity>
 
