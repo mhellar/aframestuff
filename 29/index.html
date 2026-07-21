@@ -40,10 +40,10 @@
            ============================================================ */
 AFRAME.registerComponent('funky-transform', {
     schema: {
-        spinZ:    { default: 6 },      /* deg/sec around Z — slow */
+        spinZ:    { default: 3 },      /* deg/sec around Z — slow */
         xAmp:     { default: 0.8 },   /* X scale swing, ± fraction of base */
         yAmp:     { default: 0.8 },   /* Y scale swing, ± fraction of base */
-        xPeriod:  { default: 11 },     /* seconds per X breathe cycle */
+        xPeriod:  { default: 5 },     /* seconds per X breathe cycle */
         yPeriod:  { default: 7 }       /* seconds per Y — different = drifting phase */
     },
     init: function () {
@@ -551,7 +551,7 @@ AFRAME.registerComponent('funky-transform', {
     animation="property: rotation; to: 0 360 0; dur: 12000; easing: linear; loop: true">
     <!-- model offset UP inside the wrapper so its foot is at the wrapper origin.
          the y offset must equal half the model's height (in scaled units). -->
-    <a-gltf-model src="#stand" scale="300 300 300" position="0 100 0"
+    <a-gltf-model src="#stand" scale="300 300 300" position="500 300 200"
         animation-mixer funky-transform></a-gltf-model>
 </a-entity>
         <a-gltf-model src="#hallway" scale="60 60 60" position="5 -1 28" animation-mixer></a-gltf-model>
