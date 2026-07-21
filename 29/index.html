@@ -38,6 +38,31 @@
            longer needed). Internal env params are rebalanced to
            compensate (they all multiply by that 8).
            ============================================================ */
+AFRAME.registerComponent('funky-transform', {
+    schema: {
+        spinZ:    { default: 6 },      /* deg/sec around Z — slow */
+        xAmp:     { default: 0.25 },   /* X scale swing, ± fraction of base */
+        yAmp:     { default: 0.25 },   /* Y scale swing, ± fraction of base */
+        xPeriod:  { default: 11 },     /* seconds per X breathe cycle */
+        yPeriod:  { default: 7 }       /* seconds per Y — different = drifting phase */
+    },
+    init: function () {
+        /* capture whatever scale the entity already has as the baseline */
+        var s = this.el.object3D.scale;
+        this.base = { x: s.x, y: s.y, z: s.z };
+        this.el.object3D.rotation.order = 'XYZ';  /* keep Z spin clean */
+    },
+    tick: function (time, dt) {
+        var d = this.data, o = this.el.object3D;
+        var sec = time / 1000;
+        /* independent sine cycles on X and Y */
+        o.scale.x = this.base.x * (1 + d.xAmp * Math.sin(sec * 2 * Math.PI / d.xPeriod));
+        o.scale.y = this.base.y * (1 + d.yAmp * Math.sin(sec * 2 * Math.PI / d.yPeriod));
+        o.scale.z = this.base.z;
+        /* continuous slow Z rotation, frame-rate independent */
+        o.rotation.z += THREE.MathUtils.degToRad(d.spinZ) * (dt / 1000);
+    }
+});
 
         AFRAME.registerSystem('acoustics', {
             init: function () {
@@ -516,7 +541,7 @@
                                playArea: 2"></a-entity>
 
         <!-- models -->
-        <a-gltf-model src="#stand" scale="30 30 30" position="0 0 -12" animation-mixer></a-gltf-model>
+        <a-gltf-model src="#stand" scale="300 300 300" position="0 200 -12" animation-mixer funky-transform></a-gltf-model>
 
         <a-gltf-model src="#hallway" scale="60 60 60" position="5 -1 28" animation-mixer></a-gltf-model>
 
