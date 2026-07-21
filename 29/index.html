@@ -605,13 +605,13 @@
 
         <a-assets>
             <a-mixin id="teleport"
-                blink-controls="cameraRig: #cameraRig; teleportOrigin: #camera; snapTurn: false; collisionEntities: #floor; maxLength: 300"></a-mixin>
+                blink-controls="cameraRig: #cameraRig; teleportOrigin: #camera; snapTurn: false; collisionEntities: #floor; maxLength: 600"></a-mixin>
             <a-mixin id="light" geometry="primitive: sphere; radius: 5" material="color: #FFF; shader: flat"
                 light="color: #DDDDFF; distance: 500; intensity: 1.2; type: point"></a-mixin>
             <a-mixin id="torusKnot" random-torus-knot random-material
                 random-position="min: -160 30 -160; max: 160 180 160"></a-mixin>
 
-            <audio id="atmos" src="assets/sound/orn.wav" preload="auto"></audio>
+            <audio id="atmos" src="assets/sound/true1.wav" preload="auto"></audio>
 
             <a-asset-item id="stand" src="assets/models/head2/scene.gltf"></a-asset-item>
             <a-asset-item id="hallway" src="assets/models/cave.glb"></a-asset-item>
@@ -666,7 +666,7 @@
              the perception radii (neighborDist / sepDist). boundsMin/Max
              is the box they roam. -->
         <a-entity gltf-model="#stand"
-            scatter-instances="count: 80; height: 24; heightVar: 0.4;
+            scatter-instances="count: 80; height: 32; heightVar: 0.4;
                                speed: 22; maxForce: 28;
                                neighborDist: 90; sepDist: 45;
                                separation: 1.6; alignment: 1.0; cohesion: 0.9;
