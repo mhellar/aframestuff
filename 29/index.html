@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="utf-8">
-    <title>Acoustic Spaces — Forest Monastery (Massive)</title>
+    <title>Acoustic Spaces — Mushroom Ruins</title>
     <script src="https://aframe.io/releases/1.8.0/aframe.min.js"></script>
     <script src="https://unpkg.com/aframe-environment-component@1.5.0/dist/aframe-environment-component.min.js"></script>
     <script src="https://unpkg.com/aframe-blink-controls/dist/aframe-blink-controls.min.js"></script>
@@ -19,8 +19,8 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            background: rgba(10, 14, 12, 0.92);
-            color: #dfe8e2;
+            background: rgba(24, 6, 32, 0.92);
+            color: #f4d9ff;
             font-family: monospace;
             font-size: 18px;
             text-align: center;
@@ -31,10 +31,11 @@
 
     <script>
         /* ============================================================
-           ACOUSTIC SPACES for A-Frame 1.8 — MASSIVE SCALE EDITION
-           World is ~4x. The player stays 1.6m tall: that contrast is
-           what sells the scale. Reverb zones, panner distances, fog,
-           and teleport reach are all retuned to match.
+           ACOUSTIC SPACES — psychedelic mushroom edition.
+           Same audio engine; environment swapped to giant mushrooms,
+           magenta/violet palette, and slowly hue-cycling lights.
+           A huge flat disc under the environment ground fixes the
+           "tiny ground" problem (env ground is a fixed 200m plane).
            ============================================================ */
 
         AFRAME.registerSystem('acoustics', {
@@ -61,9 +62,18 @@
                 if (this.ctx) { this.ctx.resume(); this._hideGate(); return; }
                 var ctx = this.ctx = new (window.AudioContext || window.webkitAudioContext)();
 
+                /* safety limiter so stacked tails can't clip the output */
+                this.limiter = ctx.createDynamicsCompressor();
+                this.limiter.threshold.value = -3;
+                this.limiter.knee.value = 0;
+                this.limiter.ratio.value = 20;
+                this.limiter.attack.value = 0.003;
+                this.limiter.release.value = 0.25;
+                this.limiter.connect(ctx.destination);
+
                 this.master = ctx.createGain();
                 this.master.gain.value = 1.0;
-                this.master.connect(ctx.destination);
+                this.master.connect(this.limiter);
 
                 this.dry = ctx.createGain();
                 this.dry.gain.value = 1.0;
@@ -193,9 +203,6 @@
                 }
             },
 
-            /* Exponentially decaying noise through a one-pole lowpass:
-               a surprisingly convincing stone room. Swap for real IRs
-               via irSrc when you have them. */
             synthIR: function (ctx) {
                 var rate = ctx.sampleRate;
                 var pre = Math.floor(rate * this.data.predelay);
@@ -370,7 +377,30 @@
         });
 
 
-        /* --- visual components — knot sizes bumped for massive scale --- */
+        /* slow hue drift for lights — the psychedelic pulse.
+           throttled; cheap enough for Quest. */
+        AFRAME.registerComponent('hue-cycle', {
+            schema: {
+                speed: { default: 0.015 },     /* hue cycles per second */
+                offset: { default: 0 },        /* stagger multiple lights */
+                saturation: { default: 0.85 },
+                lightness: { default: 0.65 }
+            },
+            init: function () {
+                this._c = new THREE.Color();
+                this._last = 0;
+            },
+            tick: function (time) {
+                if (time - this._last < 150) return;  /* ~7 updates/sec */
+                this._last = time;
+                var h = (time * this.data.speed / 1000 + this.data.offset) % 1;
+                this._c.setHSL(h, this.data.saturation, this.data.lightness);
+                this.el.setAttribute('light', 'color', '#' + this._c.getHexString());
+            }
+        });
+
+
+        /* --- visual components --- */
         AFRAME.registerComponent('random-material', {
             init: function () {
                 this.el.setAttribute('material', {
@@ -393,7 +423,7 @@
             init: function () {
                 this.el.setAttribute('geometry', {
                     primitive: 'torusKnot',
-                    radius: 6 + Math.random() * 18,        /* was 0–6, now 6–24 */
+                    radius: 6 + Math.random() * 18,
                     radiusTubular: 0.3 + Math.random() * 1.2,
                     p: Math.round(Math.random() * 10),
                     q: Math.round(Math.random() * 10)
@@ -416,71 +446,78 @@
                 blink-controls="cameraRig: #cameraRig; teleportOrigin: #camera; snapTurn: false; curveShootingSpeed: 18"></a-mixin>
             <a-mixin id="light" geometry="primitive: sphere; radius: 5" material="color: #FFF; shader: flat"
                 light="color: #DDDDFF; distance: 500; intensity: 1.2; type: point"></a-mixin>
-            <!-- knots spread across a much bigger volume, and higher up -->
             <a-mixin id="torusKnot" random-torus-knot random-material
                 random-position="min: -160 30 -160; max: 160 180 160"></a-mixin>
 
-            <audio id="atmos" src="assets/sound/glorn.wav" preload="auto"></audio>
-            <audio id="grave" src="assets/sound/orn.wav" preload="auto"></audio>
+            <audio id="atmos" src="assets/sound/fritreat.wav" preload="auto"></audio>
 
             <a-asset-item id="stand" src="assets/models/Stand_out/Stand.gltf"></a-asset-item>
-            <a-asset-item id="hallway" src="assets/models/gumusler_monastery/scene.gltf"></a-asset-item>
+            <a-asset-item id="hallway" src="assets/models/cave.glb"></a-asset-item>
         </a-assets>
 
-        <!-- ============ ACOUSTIC SPACES (scaled 4x + retuned) ============
-             Bigger rooms = longer predelay + longer tails. The predelay
-             is doing a lot of the "this space is huge" work.
-             ?debug=1 to see the spheres. -->
+        <!-- ============ ACOUSTIC SPACES ============ -->
 
-        <!-- everywhere else: vast open canyon — long predelay, distant slapback feel -->
+        <!-- everywhere else: vast open space — long predelay, distant slapback feel -->
         <a-entity
             reverb-zone="ambient: true; wet: 0.22; seconds: 2.6; decay: 3; tone: 4000; predelay: 0.07"></a-entity>
 
-        <!-- monastery interior: cathedral-sized dark stone -->
+        <!-- ruins interior: cathedral-sized dark stone.
+             NOTE: your ruins are now scale 80 — check with ?debug=1 that this
+             sphere actually covers the interior, and grow radius if not -->
         <a-entity position="0 8 28"
-            reverb-zone="radius: 24; fade: 12; wet: 0.9; seconds: 6.5; decay: 2; tone: 2000; predelay: 0.06"></a-entity>
+            reverb-zone="radius: 40; fade: 16; wet: 0.9; seconds: 6.5; decay: 2; tone: 2000; predelay: 0.06"></a-entity>
 
-        <!-- the stand / shrine: still tighter than outside, but grown -->
+        <!-- the stand / shrine: tighter, resonant -->
         <a-entity position="0 6 -12"
             reverb-zone="radius: 12; fade: 6; wet: 0.7; seconds: 2.4; decay: 1.8; tone: 3600; predelay: 0.025"></a-entity>
 
         <!-- ============ SOUND SOURCES ============ -->
 
-        <!-- ambience bed: light send into whichever space you're in -->
-        <a-entity spatial-source="src: #atmos; bed: true; volume: 0.8; send: 0.25"></a-entity>
+        <a-entity spatial-source="src: #atmos; bed: true; volume: 0.4; send: 0.25"></a-entity>
 
-        <!-- test drone deep in the monastery. Delete or retune for the show. -->
+        <!-- test drone deep in the ruins. Delete or retune for the show. -->
         <a-entity position="0 6 36"
             tone-source="freq: 82.4; type: triangle; volume: 0.1; send: 0.9; refDistance: 6"></a-entity>
 
-        <!-- generated torus knots -->
         <a-entity entity-generator="mixin: torusKnot; num: 15"></a-entity>
 
-        <!-- orbiting lights: wider, slower orbits read as bigger -->
+        <!-- orbiting lights, now hue-cycling out of phase with each other -->
         <a-entity animation="property: rotation; to: 0 0 360; dur: 16000; easing: linear; loop: true">
-            <a-entity mixin="light" position="120 0 0"></a-entity>
+            <a-entity mixin="light" hue-cycle="offset: 0" position="120 0 0"></a-entity>
         </a-entity>
         <a-entity animation="property: rotation; to: 360 0 0; dur: 16000; easing: linear; loop: true">
-            <a-entity mixin="light" position="0 0 160"></a-entity>
+            <a-entity mixin="light" hue-cycle="offset: 0.5" position="0 0 160"></a-entity>
         </a-entity>
 
-        <!-- environment: your spikes + towers, scaled way up.
-             Lighter fog so distance is visible — dense fog hides scale. -->
-        <a-entity environment="preset: forest; fog: 0.3; ground: spikes; groundYScale: 30;
-                               playArea: 4; dressing: towers; dressingScale: 60;
-                               dressingAmount: 20; dressingVariance: 120 120 120"></a-entity>
+        <!-- ============ PSYCHEDELIC MUSHROOM ENVIRONMENT ============
+             giant mushrooms, magenta/violet palette, flat-shaded.
+             groundYScale back to sane hills (300 was making
+             vertical spike-mountains that ate the walkable ground). -->
+        <a-entity environment="preset: forest; fog: 0.25;
+                               ground: hills; groundYScale: 25;
+                               groundColor: #5b1a72; groundColor2: #ff5ec4;
+                               groundTexture: walkernoise;
+                               skyType: gradient; skyColor: #ff9de2; horizonColor: #3c0a5e;
+                               flatShading: true;
+                               dressing: mushrooms; dressingAmount: 80;
+                               dressingScale: 25; dressingColor: #b03fff;
+                               dressingVariance: 150 60 150;
+                               playArea: 4"></a-entity>
 
-        <!-- models: 4x -->
+        <!-- the ground fix: env ground is a fixed 200m plane — this huge
+             disc underneath continues it to the horizon in a matching color -->
+        <a-circle rotation="-90 0 0" radius="1500" position="0 -0.6 0"
+            material="color: #4a1560; shader: flat"></a-circle>
+
+        <!-- models -->
         <a-gltf-model src="#stand" scale="8 8 8" position="0 0 -12" animation-mixer>
-            <!-- positional ghost: gentler rolloff so it carries across big distances -->
             <a-entity
                 spatial-source="src: #grave; volume: 0.9; send: 0.8; refDistance: 6; rolloffFactor: 1.1; maxDistance: 500"></a-entity>
         </a-gltf-model>
 
-        <a-gltf-model src="#hallway" scale="4 4 4" position="0 0 28" animation-mixer></a-gltf-model>
+        <a-gltf-model src="#hallway" scale="40 40 40" position="-5 0 28" animation-mixer></a-gltf-model>
 
-        <!-- camera rig: still human-sized — that's what makes it feel massive.
-             Faster wasd for desktop traversal of the bigger map. -->
+        <!-- camera rig -->
         <a-entity id="cameraRig" position="0 0.1 0">
             <a-entity id="camera" camera position="0 1.6 0" wasd-controls="acceleration: 220" look-controls></a-entity>
             <a-entity id="rightHand" mixin="teleport" laser-controls="hand: right"></a-entity>
